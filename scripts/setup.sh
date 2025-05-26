@@ -163,9 +163,11 @@ EOF
 elif [ "$PLATFORM" == "pc" ]; then
     print_status "Setting up PC specific configurations..."
     
-    # Download NLTK data for sentiment analysis
-    print_status "Downloading NLTK data..."
-    python3 -c "import nltk; nltk.download('punkt'); nltk.download('vader_lexicon')"
+    # Setup Ollama for Gemma 3 sentiment analysis
+    print_status "Setting up Ollama for sentiment analysis..."
+    print_warning "Please ensure Ollama is installed on your system:"
+    print_warning "Visit https://ollama.ai for installation instructions"
+    print_warning "After installation, run: ollama pull gemma3:4b"
     
     # Create Jupyter notebook for analysis
     print_status "Creating analysis notebook..."

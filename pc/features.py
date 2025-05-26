@@ -11,8 +11,10 @@ import requests
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from textblob import TextBlob
+import ollama
 import sqlite3
+import yaml
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -24,8 +26,27 @@ logger = logging.getLogger(__name__)
 # Configuration
 DATA_PATH = Path(__file__).parent.parent / "data" / "dumps"
 OUTPUT_PATH = Path(__file__).parent.parent / "data" / "features"
-NEWS_API_KEY = "your_newsapi_key_here"  # Replace with actual API key
-SYMBOLS = ["BTCUSDT", "ETHUSDT"]
+CONFIG_PATH = Path(__file__).parent.parent / "config" / "config.yaml"
+
+# Load configuration
+def load_config():
+    """Load configuration from config.yaml"""
+    try:
+        if CONFIG_PATH.exists():
+            with open(CONFIG_PATH, 'r') as f:
+                return yaml.safe_load(f)
+        else:
+            logger.warning("Config file not found, using defaults")
+            return {}
+    except Exception as e:
+        logger.error(f"Error loading config: {e}")
+        return {}
+
+config = load_config()
+NEWS_API_KEY = os.getenv("NEWS_API_KEY", config.get("features", {}).get("sentiment", {}).get("news_api_key", "your_newsapi_key_here"))
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", config.get("features", {}).get("sentiment", {}).get("ollama_host", "http://localhost:11434"))
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", config.get("features", {}).get("sentiment", {}).get("model", "gemma3:4b"))
+SYMBOLS = config.get("data", {}).get("symbols", ["BTCUSDT", "ETHUSDT"])
 
 def load_price_data(symbol, days=30):
     """Load price data from CSV dumps"""
@@ -161,6 +182,54 @@ def compute_technical_indicators(df):
         logger.error(f"Error computing technical indicators: {e}")
         return df
 
+def analyze_sentiment_with_gemma3(text):
+    """Analyze sentiment using Gemma 3 4B LLM via Ollama"""
+    try:
+        # Prepare the prompt for sentiment analysis
+        prompt = f"""Analyze the sentiment of the following financial news text and return only a numerical score between -1 and 1, where:
+-1 = very negative sentiment
+0 = neutral sentiment  
+1 = very positive sentiment
+
+Text: "{text}"
+
+Return only the numerical score (e.g., 0.3, -0.7, 0.0):"""
+
+        # Call Gemma 3 via Ollama
+        client = ollama.Client(host=OLLAMA_HOST)
+        response = client.chat(
+            model=OLLAMA_MODEL,
+            messages=[{
+                'role': 'user',
+                'content': prompt
+            }],
+            options={
+                'temperature': 0.1,  # Low temperature for consistent results
+                'num_predict': 10,   # Short response expected
+            }
+        )
+        
+        # Extract and parse the sentiment score
+        sentiment_text = response['message']['content'].strip()
+        
+        # Try to extract a number from the response
+        import re
+        numbers = re.findall(r'-?\d+\.?\d*', sentiment_text)
+        
+        if numbers:
+            sentiment_score = float(numbers[0])
+            # Clamp to [-1, 1] range
+            sentiment_score = max(-1.0, min(1.0, sentiment_score))
+            return sentiment_score
+        else:
+            logger.warning(f"Could not parse sentiment score from Gemma 3 response: {sentiment_text}")
+            return 0.0
+            
+    except Exception as e:
+        logger.error(f"Error analyzing sentiment with Gemma 3: {e}")
+        # Fallback to neutral sentiment
+        return 0.0
+
 def fetch_news_sentiment(symbol_name, hours=24):
     """Fetch news and compute sentiment scores"""
     try:
@@ -212,9 +281,8 @@ def fetch_news_sentiment(symbol_name, hours=24):
                 if not text.strip():
                     continue
                 
-                # Compute sentiment using TextBlob
-                blob = TextBlob(text)
-                sentiment = blob.sentiment.polarity  # -1 to 1
+                # Compute sentiment using Gemma 3
+                sentiment = analyze_sentiment_with_gemma3(text)
                 
                 # Parse published date
                 published_at = datetime.fromisoformat(

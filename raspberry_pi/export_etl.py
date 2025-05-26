@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_data.db"
 DUMPS_PATH = Path(__file__).parent.parent / "data" / "dumps"
-SYMBOLS = ["BTCUSDT", "ETHUSDT"]
+SYMBOLS = ["BTCUSD", "ETHUSD"]  # Updated to USD pairs
 
 def export_daily_data():
     """Export last 24 hours of data to CSV files"""

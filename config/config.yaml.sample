@@ -30,9 +30,10 @@ features:
   
   sentiment:
     enabled: true
-    news_api_key: "your_newsapi_key_here"
+    model: "gemma3:4b"  # Ollama model for sentiment analysis
     update_interval_minutes: 15
     sources: ["newsapi"]
+    ollama_host: "http://localhost:11434"  # Default Ollama host
   
   normalization:
     method: "standard_scaler"

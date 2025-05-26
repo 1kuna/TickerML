@@ -47,6 +47,16 @@ TickerML/
 │   ├── train.py         # Model training
 │   ├── export_quantize.py # ONNX export & quantization
 │   └── requirements.txt  # PC dependencies
+├── scripts/              # Utility scripts
+│   ├── setup.sh          # Environment setup
+│   ├── test_data_collection.py # Comprehensive testing
+│   ├── test_summary.py   # Status overview
+│   ├── setup_test_env.py # Test environment setup
+│   └── test_pipeline.py  # Full pipeline testing
+├── docs/                 # Documentation
+│   └── TESTING_GUIDE.md  # Detailed testing guide
+├── notebooks/            # Jupyter notebooks
+│   └── analysis.ipynb    # Data analysis notebook
 ├── models/               # Model artifacts
 │   ├── checkpoints/     # PyTorch checkpoints
 │   └── onnx/           # ONNX models
@@ -55,11 +65,56 @@ TickerML/
 │   └── db/             # Database files
 ├── config/              # Configuration files
 │   └── config.yaml     # Main configuration
-└── scripts/            # Utility scripts
-    └── setup.sh        # Environment setup
+└── logs/                # Log files
 ```
 
 ## Quick Start
+
+### 🚀 Ready to Use Commands
+
+#### **Test Everything**
+```bash
+# Setup environment
+python scripts/setup_test_env.py
+
+# Run comprehensive tests
+python scripts/test_data_collection.py
+
+# Check status
+python scripts/test_summary.py
+```
+
+#### **Manual Data Collection**
+```bash
+# Single collection (Binance.US + CoinGecko fallback)
+python raspberry_pi/harvest.py
+
+# Export to CSV
+python raspberry_pi/export_etl.py
+
+# Check what was collected
+sqlite3 data/db/crypto_data.db "SELECT symbol, COUNT(*) FROM ohlcv GROUP BY symbol;"
+```
+
+#### **Automated Collection Setup**
+```bash
+# Edit crontab
+crontab -e
+
+# Add this line (replace /path/to/TickerML with your actual path):
+* * * * * cd /Users/zach/Documents/Git/TickerML && python raspberry_pi/harvest.py >> logs/harvest.log 2>&1
+
+# Monitor collection
+tail -f logs/harvest.log
+```
+
+#### **Dashboard (after collecting data)**
+```bash
+# Start web dashboard
+python raspberry_pi/dashboard.py
+
+# Visit: http://localhost:5000
+```
 
 ### Automated Setup
 
@@ -124,9 +179,11 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. **Download NLTK data for sentiment analysis:**
+2. **Install and setup Ollama for Gemma 3 sentiment analysis:**
 ```bash
-python -c "import nltk; nltk.download('punkt'); nltk.download('vader_lexicon')"
+# Install Ollama (visit https://ollama.ai for platform-specific instructions)
+# Then pull the Gemma 3 4B model
+ollama pull gemma3:4b
 ```
 
 3. **Configure NewsAPI (optional):**
@@ -139,6 +196,34 @@ python pc/features.py      # Feature engineering
 python pc/train.py         # Model training
 python pc/export_quantize.py  # ONNX export & quantization
 ```
+
+## Current Status
+
+✅ **Working Components:**
+- Database setup and operations
+- Data harvesting from Binance.US
+- CSV export functionality
+- Error handling and logging
+- Duplicate prevention
+
+✅ **APIs Available:**
+- Binance.US: `https://api.binance.us/api/v3`
+- CoinGecko: `https://api.coingecko.com/api/v3`
+
+❌ **Known Issues:**
+- Binance.com blocked (geographic restriction)
+- Need 24+ hours of data for meaningful analysis
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `raspberry_pi/harvest.py` | Data collection (Binance.US + CoinGecko fallback) |
+| `raspberry_pi/export_etl.py` | CSV export |
+| `raspberry_pi/dashboard.py` | Web dashboard |
+| `scripts/test_data_collection.py` | Comprehensive testing |
+| `scripts/test_summary.py` | Status overview |
+| `scripts/setup_test_env.py` | Test environment setup |
 
 ## Configuration
 
@@ -160,7 +245,7 @@ Edit `config/config.yaml` to customize:
 | **Dashboard** | Flask + Chart.js |
 | **Scheduling** | cron |
 | **Feature Engineering** | pandas, numpy, ta |
-| **Sentiment Analysis** | transformers (DistilBERT/FinBERT), vaderSentiment |
+| **Sentiment Analysis** | Gemma 3 4B (via Ollama) |
 | **Quantization** | onnxruntime.quantization |
 
 ## Components & Responsibilities
@@ -169,7 +254,7 @@ Edit `config/config.yaml` to customize:
 |-----------|----------|---------------|----------|
 | **Minute-level Harvester** | Raspberry Pi | Call Binance REST API for BTC/USDT & ETH/USDT every 1 min<br>Insert timestamped OHLCV into TS DB | Every minute (cron) |
 | **ETL Dump & Sync** | Raspberry Pi | At 00:00 UTC, export last 24h of DB → CSV<br>(Optional) SCP to PC or cloud storage | Daily at midnight (cron) |
-| **Feature Engineering** | PC | Read CSVs/DB dumps<br>Compute RSI, MACD, VWAP, Bollinger bands, moving avgs, volatility<br>Pull news headlines via NewsAPI → sentiment score | On training run (ad-hoc) |
+| **Feature Engineering** | PC | Read CSVs/DB dumps<br>Compute RSI, MACD, VWAP, Bollinger bands, moving avgs, volatility<br>Pull news headlines via NewsAPI → sentiment score using Gemma 3 | On training run (ad-hoc) |
 | **Model Training** | PC (GPU/CPU) | Prepare sliding windows (60 min history → targets at 5,10,30 min)<br>Define 4-6-layer Transformer<br>Train with mixed precision, track MSE & classification AUC | As needed (ad-hoc) |
 | **Export & Quantization** | PC | Export best PyTorch checkpoint → ONNX<br>Run ONNX Runtime INT8 quantization | Post-training |
 | **Inference Service** | Raspberry Pi | Load quantized ONNX model<br>Every 5 min: query last 60 min features from DB → predict next intervals<br>Log preds + confidences | Every 5 min (cron or daemon) |
@@ -206,6 +291,21 @@ class TimeSeriesTransformer(nn.Module):
 ```bash
 # Test data harvesting
 python raspberry_pi/harvest.py
+
+# Setup test environment
+python scripts/setup_test_env.py
+
+# Run comprehensive data collection tests
+python scripts/test_data_collection.py
+
+# Check system status
+python scripts/test_summary.py
+
+# Verify Gemma 3 configuration
+python scripts/verify_gemma_config.py
+
+# Test sentiment analysis with Gemma 3
+python scripts/test_sentiment.py
 
 # Test feature engineering
 python pc/features.py --test
@@ -269,6 +369,13 @@ print(df.tail())
    - Verify port 5000 is not blocked
    - Check firewall settings
 
+6. **Sentiment analysis issues:**
+   - Ensure Ollama is installed and running: `ollama serve`
+   - Check if Gemma 3 model is available: `ollama list`
+   - Pull the model if missing: `ollama pull gemma3:4b`
+   - For resource-constrained systems, consider using: `ollama pull gemma3:1b`
+   - Verify Ollama host configuration in config.yaml
+
 ## Development Timeline
 
 - **Day 1:** Pi harvester + ETL setup
@@ -276,6 +383,11 @@ print(df.tail())
 - **Day 4-6:** Transformer training
 - **Day 7:** ONNX export + Pi inference
 - **Day 8:** Dashboard + end-to-end testing
+
+## Documentation
+
+- **[Testing Guide](docs/TESTING_GUIDE.md)** - Comprehensive testing instructions
+- **[Analysis Notebook](notebooks/analysis.ipynb)** - Data analysis and visualization tools
 
 ## Contributing
 
