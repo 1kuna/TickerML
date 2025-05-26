@@ -1,0 +1,129 @@
+# Crypto Time-Series Transformer Pipeline Configuration
+
+# Data Collection
+data:
+  symbols: ["BTCUSDT", "ETHUSDT"]
+  binance_api_base: "https://api.binance.com/api/v3"
+  interval: "1m"
+  sequence_length: 60  # minutes of history for prediction
+
+# Database
+database:
+  type: "sqlite"
+  path: "data/db/crypto_data.db"
+  backup_enabled: true
+  backup_interval_hours: 24
+
+# Feature Engineering
+features:
+  technical_indicators:
+    - "sma"
+    - "ema"
+    - "rsi"
+    - "macd"
+    - "bollinger_bands"
+    - "stochastic"
+    - "atr"
+    - "cci"
+    - "mfi"
+    - "williams_r"
+  
+  sentiment:
+    enabled: true
+    news_api_key: "your_newsapi_key_here"
+    update_interval_minutes: 15
+    sources: ["newsapi"]
+  
+  normalization:
+    method: "standard_scaler"
+    save_scaler: true
+
+# Model Training
+model:
+  architecture: "transformer"
+  d_model: 128
+  n_heads: 4
+  n_layers: 6
+  dropout: 0.1
+  
+  training:
+    batch_size: 32
+    epochs: 100
+    learning_rate: 0.001
+    weight_decay: 1e-4
+    early_stopping_patience: 15
+    
+  targets:
+    prediction_horizons: [5, 10, 30]  # minutes
+    include_direction: true
+    include_regression: true
+
+# ONNX Export
+onnx:
+  opset_version: 11
+  quantization:
+    enabled: true
+    weight_type: "QInt8"
+  
+# Inference
+inference:
+  interval_minutes: 5
+  confidence_threshold: 0.7
+  batch_size: 1
+
+# Dashboard
+dashboard:
+  host: "0.0.0.0"
+  port: 5000
+  debug: false
+  auto_refresh_seconds: 30
+  chart_history_hours: 24
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(levelname)s - %(message)s"
+  file_enabled: true
+  file_path: "logs/crypto_pipeline.log"
+  max_file_size_mb: 10
+  backup_count: 5
+
+# Alerts (Optional)
+alerts:
+  enabled: false
+  email:
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    username: "your_email@gmail.com"
+    password: "your_app_password"
+    recipients: ["alert@example.com"]
+  
+  webhook:
+    enabled: false
+    url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+  
+  conditions:
+    high_confidence_threshold: 0.9
+    large_price_change_percent: 5.0
+
+# Paths
+paths:
+  data_dumps: "data/dumps"
+  features: "data/features"
+  models: "models"
+  checkpoints: "models/checkpoints"
+  onnx: "models/onnx"
+  logs: "logs"
+
+# Cron Schedules
+cron:
+  harvest: "* * * * *"  # Every minute
+  etl_export: "0 0 * * *"  # Daily at midnight
+  inference: "*/5 * * * *"  # Every 5 minutes
+  
+# Performance
+performance:
+  max_workers: 4
+  memory_limit_gb: 8
+  gpu_enabled: true
+  mixed_precision: true 

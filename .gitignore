@@ -172,3 +172,36 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Project-specific files
+data/db/*.db
+data/dumps/*.csv
+data/features/*.csv
+models/checkpoints/*.pt
+models/checkpoints/*.pth
+models/onnx/*.onnx
+logs/*.log
+config/config.yaml
+
+# API keys and secrets
+.env
+*.key
+*_secret.txt
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backup files
+*.bak
+*.backup
