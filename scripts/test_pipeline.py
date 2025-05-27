@@ -24,6 +24,33 @@ logger = logging.getLogger(__name__)
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
+import yaml
+
+# --- Configuration Helper ---
+def get_api_base_from_config():
+    """Loads data.binance_api_base from config.yaml, with fallback."""
+    default_api_base = "https://api.binance.us/api/v3" # As per task fallback example
+    config_path = project_root / "config" / "config.yaml"
+
+    if not config_path.exists():
+        logger.warning(f"Config file not found at {config_path}. Using default API base: {default_api_base}")
+        return default_api_base
+
+    try:
+        with open(config_path, 'r') as f:
+            yaml_config = yaml.safe_load(f)
+        
+        if yaml_config and "data" in yaml_config and "binance_api_base" in yaml_config["data"]:
+            loaded_api_base = yaml_config["data"]["binance_api_base"]
+            logger.info(f"Loaded API base from config: {loaded_api_base}")
+            return loaded_api_base
+        else:
+            logger.warning(f"'data.binance_api_base' not found in {config_path}. Using default API base: {default_api_base}")
+            return default_api_base
+    except Exception as e:
+        logger.error(f"Error loading API base from {config_path}: {e}. Using default: {default_api_base}")
+        return default_api_base
+
 def test_imports():
     """Test that all required packages can be imported"""
     logger.info("Testing imports...")
@@ -93,11 +120,13 @@ def test_api_connection():
     try:
         import requests
         
-        url = "https://api.binance.com/api/v3/ping"
-        response = requests.get(url, timeout=10)
+        api_base_url = get_api_base_from_config()
+        ping_url = f"{api_base_url.rstrip('/')}/ping" # Ensure no double slashes if base has trailing slash
+        
+        response = requests.get(ping_url, timeout=10)
         response.raise_for_status()
         
-        logger.info("✓ Binance API connection successful")
+        logger.info(f"✓ API connection to {ping_url} successful")
         return True
         
     except Exception as e:
