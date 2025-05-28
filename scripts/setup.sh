@@ -237,7 +237,12 @@ fi
 
 # Create sample configuration
 print_status "Creating sample configuration..."
-cp config/config.yaml config/config.yaml.sample
+if [ ! -f "config/config.yaml" ]; then
+    cp config/config.yaml.sample config/config.yaml
+    print_status "config/config.yaml created from sample. Please edit it with your API keys."
+else
+    print_warning "config/config.yaml already exists. Please ensure it's up to date with config/config.yaml.sample."
+fi
 
 print_success "Setup completed successfully!"
 

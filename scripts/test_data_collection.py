@@ -20,12 +20,68 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+import yaml
+
 # Configuration
-PROJECT_ROOT = Path(__file__).parent
-DB_PATH = PROJECT_ROOT / "data" / "db" / "crypto_data.db"
-DUMPS_PATH = PROJECT_ROOT / "data" / "dumps"
-BINANCE_US_API_BASE = "https://api.binance.us/api/v3"
-SYMBOLS = ["BTCUSD", "ETHUSD"]  # Updated to USD pairs
+PROJECT_ROOT = Path(__file__).parent # This is scripts/
+CONFIG_FILE_PATH = PROJECT_ROOT.parent / "config" / "config.yaml"
+
+# --- Configuration Helper ---
+def load_test_config():
+    """Loads test configurations from config.yaml, with fallbacks."""
+    # Defaults based on original hardcoded values
+    defaults = {
+        "binance_api_base": "https://api.binance.us/api/v3",
+        "db_path": "data/db/crypto_data.db", # Relative to project root
+        "dumps_path": "data/dumps",          # Relative to project root
+        "symbols": ["BTCUSD", "ETHUSD"]
+    }
+    
+    loaded_cfg = defaults.copy()
+
+    if not CONFIG_FILE_PATH.exists():
+        logger.warning(f"Config file not found at {CONFIG_FILE_PATH}. Using default test configurations.")
+        return loaded_cfg
+
+    try:
+        with open(CONFIG_FILE_PATH, 'r') as f:
+            yaml_config = yaml.safe_load(f)
+        
+        if yaml_config:
+            loaded_cfg["binance_api_base"] = yaml_config.get("data", {}).get("binance_api_base", defaults["binance_api_base"])
+            loaded_cfg["db_path"] = yaml_config.get("database", {}).get("path", defaults["db_path"])
+            loaded_cfg["dumps_path"] = yaml_config.get("paths", {}).get("data_dumps", defaults["dumps_path"])
+            loaded_cfg["symbols"] = yaml_config.get("data", {}).get("symbols", defaults["symbols"])
+
+            for key in defaults.keys():
+                if loaded_cfg[key] == defaults[key] and \
+                   ( (key == "binance_api_base" and yaml_config.get("data", {}).get("binance_api_base") is None) or \
+                     (key == "db_path" and yaml_config.get("database", {}).get("path") is None) or \
+                     (key == "dumps_path" and yaml_config.get("paths", {}).get("data_dumps") is None) or \
+                     (key == "symbols" and yaml_config.get("data", {}).get("symbols") is None) ):
+                    logger.warning(f"Key '{key}' not found or misconfigured in {CONFIG_FILE_PATH}. Using default: {defaults[key]}")
+                else:
+                    logger.info(f"Loaded '{key}' from config: {loaded_cfg[key]}")
+        else:
+            logger.warning(f"Config file {CONFIG_FILE_PATH} is empty. Using default test configurations.")
+            loaded_cfg = defaults.copy()
+            
+    except Exception as e:
+        logger.error(f"Error loading test configurations from {CONFIG_FILE_PATH}: {e}. Using defaults.")
+        loaded_cfg = defaults.copy()
+        
+    return loaded_cfg
+
+# Load configurations
+config_values = load_test_config()
+
+# Define global variables from loaded config
+# Note: PROJECT_ROOT is scripts/, so paths from config (relative to project root) need parent applied.
+DB_PATH = PROJECT_ROOT.parent / config_values['db_path']
+DUMPS_PATH = PROJECT_ROOT.parent / config_values['dumps_path']
+BINANCE_US_API_BASE = config_values['binance_api_base']
+SYMBOLS = config_values['symbols']
+
 
 def test_api_connection():
     """Test 1: Verify API connectivity (Binance.US + CoinGecko fallback)"""
@@ -89,11 +145,12 @@ def test_database_setup():
     
     try:
         # Add raspberry_pi to path
-        sys.path.append(str(PROJECT_ROOT / "raspberry_pi"))
+        # PROJECT_ROOT is scripts/, harvest.py is in raspberry_pi/ relative to project root.
+        sys.path.append(str(PROJECT_ROOT.parent / "raspberry_pi"))
         from harvest import init_database, store_data
         
-        # Initialize database
-        init_database()
+        # Initialize database (uses DB_PATH from loaded config)
+        init_database() 
         logger.info("✅ Database initialized successfully")
         
         # Test data insertion
@@ -132,7 +189,8 @@ def test_data_harvesting():
     logger.info("🔍 Test 3: Testing data harvesting...")
     
     try:
-        sys.path.append(str(PROJECT_ROOT / "raspberry_pi"))
+        # PROJECT_ROOT is scripts/, harvest.py is in raspberry_pi/ relative to project root.
+        sys.path.append(str(PROJECT_ROOT.parent / "raspberry_pi"))
         from harvest import fetch_kline_data, store_data
         
         success_count = 0
@@ -169,10 +227,11 @@ def test_data_export():
     logger.info("🔍 Test 4: Testing data export...")
     
     try:
-        sys.path.append(str(PROJECT_ROOT / "raspberry_pi"))
+        # PROJECT_ROOT is scripts/, export_etl.py is in raspberry_pi/ relative to project root.
+        sys.path.append(str(PROJECT_ROOT.parent / "raspberry_pi"))
         from export_etl import export_daily_data
         
-        # Run export
+        # Run export (uses DUMPS_PATH and DB_PATH from loaded config)
         export_daily_data()
         
         # Check if CSV files were created
@@ -286,7 +345,8 @@ def run_continuous_test(duration_minutes=5):
     logger.info(f"🔍 Test 7: Running continuous collection for {duration_minutes} minutes...")
     
     try:
-        sys.path.append(str(PROJECT_ROOT / "raspberry_pi"))
+        # PROJECT_ROOT is scripts/, harvest.py is in raspberry_pi/ relative to project root.
+        sys.path.append(str(PROJECT_ROOT.parent / "raspberry_pi"))
         from harvest import fetch_kline_data, store_data
         
         start_time = time.time()

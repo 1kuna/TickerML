@@ -10,16 +10,85 @@ import pandas as pd
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
+import yaml
+import logging
+
+# Setup a basic logger for config loading, Flask's app.logger can be used later
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# --- Configuration Loading ---
+DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_data.db"
+DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT"]
+DEFAULT_HOST = "0.0.0.0"
+DEFAULT_PORT = 5000
+DEFAULT_DEBUG = True
+
+def load_app_config():
+    """Loads configuration from YAML file, with fallbacks to defaults."""
+    config_file_path = Path(__file__).parent.parent / "config" / "config.yaml"
+    
+    cfg = {
+        "db_path": str(DEFAULT_DB_PATH),
+        "symbols": DEFAULT_SYMBOLS,
+        "host": DEFAULT_HOST,
+        "port": DEFAULT_PORT,
+        "debug": DEFAULT_DEBUG,
+    }
+
+    if not config_file_path.exists():
+        logger.warning(f"Config file not found at {config_file_path}. Using default dashboard settings.")
+        return cfg
+
+    try:
+        with open(config_file_path, 'r') as f:
+            yaml_config = yaml.safe_load(f)
+
+        if yaml_config:
+            cfg["db_path"] = yaml_config.get("database", {}).get("path", cfg["db_path"])
+            cfg["symbols"] = yaml_config.get("data", {}).get("symbols", cfg["symbols"])
+            
+            dashboard_config = yaml_config.get("dashboard", {})
+            cfg["host"] = dashboard_config.get("host", cfg["host"])
+            cfg["port"] = dashboard_config.get("port", cfg["port"])
+            cfg["debug"] = dashboard_config.get("debug", cfg["debug"])
+
+            # Log loaded config values or which ones are using defaults
+            for key, default_val in [("db_path", str(DEFAULT_DB_PATH)), ("symbols", DEFAULT_SYMBOLS),
+                                     ("host", DEFAULT_HOST), ("port", DEFAULT_PORT), ("debug", DEFAULT_DEBUG)]:
+                is_default = False
+                if key == "db_path":
+                    is_default = cfg[key] == default_val and yaml_config.get("database", {}).get("path") is None
+                elif key == "symbols":
+                    is_default = cfg[key] == default_val and yaml_config.get("data", {}).get("symbols") is None
+                elif key in ["host", "port", "debug"]:
+                    is_default = cfg[key] == default_val and dashboard_config.get(key) is None
+                
+                if is_default:
+                    logger.warning(f"{key} not found in config or its parent key is missing. Using default: {cfg[key]}")
+                else:
+                    logger.info(f"Loaded {key} from config: {cfg[key]}")
+        else:
+            logger.warning(f"Config file {config_file_path} is empty. Using default dashboard settings.")
+            
+    except yaml.YAMLError as e:
+        logger.error(f"Error parsing config file {config_file_path}: {e}. Using default dashboard settings.")
+    except Exception as e:
+        logger.error(f"Unexpected error loading config file {config_file_path}: {e}. Using default dashboard settings.")
+        
+    return cfg
+
+app_config_values = load_app_config()
 
 app = Flask(__name__)
 
-# Configuration
-DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_data.db"
-SYMBOLS = ["BTCUSDT", "ETHUSDT"]
+# Configuration from loaded values
+DB_PATH = Path(app_config_values['db_path'])
+SYMBOLS = app_config_values['symbols']
 
 def get_db_connection():
     """Get database connection"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(str(DB_PATH)) # Ensure DB_PATH is a string
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -609,4 +678,8 @@ def create_templates():
         f.write(html_content)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True) 
+    app.run(
+        host=app_config_values['host'], 
+        port=app_config_values['port'], 
+        debug=app_config_values['debug']
+    )
