@@ -18,8 +18,8 @@ try:
     # Attempt to get the original function code from the previous commit
     # Ensure we are in the root of the git repository for the command to work correctly
     # Assuming the script is run from a context where 'pc' is a subdirectory
-    git_root = subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], text=True).strip()
-    features_path_in_repo = os.path.join(os.path.relpath(os.path.dirname(__file__), git_root), 'features.py')
+    git_root = Path(subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], text=True).strip())
+    features_path_in_repo = git_root / 'pc' / 'features.py'
     
     original_function_code_bytes = subprocess.check_output(
         ['git', 'show', f'HEAD~1:{features_path_in_repo}'],
