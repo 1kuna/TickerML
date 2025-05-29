@@ -9,9 +9,20 @@ import sqlite3
 import requests
 import time
 import logging
+import signal
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 import yaml
+
+# Global shutdown flag
+shutdown_requested = False
+
+# Signal handler
+def handle_shutdown_signal(signum, frame):
+    global shutdown_requested
+    logger.info(f"Received signal {signum}. Requesting shutdown...")
+    shutdown_requested = True
 
 # Configure logging
 logging.basicConfig(
@@ -228,6 +239,7 @@ def fetch_kline_data(symbol):
 
 def store_data(symbol, kline_data):
     """Store kline data in SQLite database"""
+    conn = None # Initialize conn to None
     try:
         conn = sqlite3.connect(str(DB_PATH)) # Uses global DB_PATH
         cursor = conn.cursor()
@@ -252,10 +264,12 @@ def store_data(symbol, kline_data):
             logger.debug(f"Data already exists for {symbol} at {datetime.fromtimestamp(kline_data['timestamp']/1000)}")
             
         conn.commit()
-        conn.close()
         
     except sqlite3.Error as e:
         logger.error(f"Database error storing {symbol}: {e}")
+    finally:
+        if conn:
+            conn.close()
 
 def fetch_historical_klines_binance_us(symbol, start_time, end_time, limit=500):
     """Fetch historical kline data from Binance.US with rate limiting"""
@@ -302,6 +316,7 @@ def store_historical_data_batch(symbol, klines_data):
     if not klines_data:
         return 0
     
+    conn = None # Initialize conn to None
     try:
         conn = sqlite3.connect(str(DB_PATH))
         cursor = conn.cursor()
@@ -326,15 +341,19 @@ def store_historical_data_batch(symbol, klines_data):
         
         inserted_count = cursor.rowcount
         conn.commit()
-        conn.close()
         
         return inserted_count
         
-    except sqlite3.Error:
+    except sqlite3.Error as e: # It's good practice to log the error
+        logger.error(f"Database error storing historical batch for {symbol}: {e}")
         return 0
+    finally:
+        if conn:
+            conn.close()
 
 def check_and_backfill(symbol):
     """Check for missing data and backfill automatically up to MAX_BACKFILL_DAYS"""
+    conn = None # Initialize conn to None
     try:
         conn = sqlite3.connect(str(DB_PATH))
         cursor = conn.cursor()
@@ -342,10 +361,14 @@ def check_and_backfill(symbol):
         # Check if we have any data for this symbol
         cursor.execute("SELECT MIN(timestamp), MAX(timestamp) FROM ohlcv WHERE symbol = ?", (symbol,))
         result = cursor.fetchone()
-        conn.close()
+        # No conn.close() here, keep it open for the duration of this function logic if needed, or close and reopen.
+        # For simplicity here, we'll close it if we return early, or it will be closed in finally.
         
         if not result[0]:  # No data exists
             logger.info(f"No existing data for {symbol}, starting {MAX_BACKFILL_DAYS}-day backfill")
+            if conn: # Close connection if we are about to make many API calls before next DB op
+                conn.close()
+                conn = None
             end_time = datetime.now()
             start_time = end_time - timedelta(days=MAX_BACKFILL_DAYS)
         else:
@@ -356,18 +379,25 @@ def check_and_backfill(symbol):
             
             if (now - latest_datetime).total_seconds() < 3600:  # Less than 1 hour old
                 logger.info(f"Recent data exists for {symbol}, skipping backfill")
+                # conn was opened, ensure it's closed before returning
+                if conn:
+                    conn.close()
+                    conn = None
                 return 0
             
             # Fill gap from latest data to now
             logger.info(f"Gap detected for {symbol}, backfilling from {latest_datetime}")
             start_time = latest_datetime
             end_time = now
+            if conn: # Close connection if we are about to make many API calls before next DB op
+                conn.close()
+                conn = None
         
         # Perform backfill
         total_inserted = 0
         current_time = start_time
         
-        while current_time < end_time:
+        while current_time < end_time and not shutdown_requested: # Check shutdown_requested
             batch_end = min(current_time + timedelta(hours=8), end_time)  # 8 hours per batch
             
             start_ts = int(current_time.timestamp() * 1000)
@@ -376,12 +406,15 @@ def check_and_backfill(symbol):
             historical_data = fetch_historical_klines_binance_us(symbol, start_ts, end_ts, BATCH_SIZE)
             
             if historical_data:
-                inserted = store_historical_data_batch(symbol, historical_data)
+                inserted = store_historical_data_batch(symbol, historical_data) # This function now handles its own conn
                 total_inserted += inserted
                 if inserted > 0:
                     logger.info(f"Backfilled {inserted} records for {symbol}")
             
             current_time = batch_end
+            if shutdown_requested:
+                logger.info(f"Shutdown requested during backfill for {symbol}. Processed up to {current_time}.")
+                break
         
         if total_inserted > 0:
             logger.info(f"✅ Backfill completed for {symbol}: {total_inserted} records")
@@ -391,42 +424,71 @@ def check_and_backfill(symbol):
     except Exception as e:
         logger.error(f"Backfill error for {symbol}: {e}")
         return 0
+    finally:
+        if conn: # Ensure connection opened at the start of check_and_backfill is closed
+            conn.close()
 
 def main():
     """Main function: auto-backfill missing data, then live harvest"""
+    global shutdown_requested
     logger.info("Starting crypto data harvest with automatic backfill")
     
-    # Initialize database
-    init_database()
-    
-    # Auto-backfill missing historical data for each symbol
-    logger.info("Checking for missing historical data...")
-    total_backfilled = 0
-    for symbol in SYMBOLS:
-        backfilled = check_and_backfill(symbol)
-        total_backfilled += backfilled
-    
-    if total_backfilled > 0:
-        logger.info(f"📈 Historical backfill completed: {total_backfilled} total records")
-    else:
-        logger.info("✅ No historical backfill needed, data is up to date")
-    
-    # Now do live harvest
-    logger.info("Starting live data harvest...")
-    success_count = 0
-    for symbol_idx, symbol_name in enumerate(SYMBOLS):
-        logger.info(f"Fetching live data for {symbol_name}")
+    try:
+        # Initialize database
+        init_database()
         
-        binance_api_symbol = BINANCE_SYMBOLS[symbol_idx] if symbol_idx < len(BINANCE_SYMBOLS) else symbol_name
+        # Auto-backfill missing historical data for each symbol
+        logger.info("Checking for missing historical data...")
+        total_backfilled = 0
+        for symbol in SYMBOLS:
+            if shutdown_requested:
+                logger.info("Shutdown requested before backfill loop could complete.")
+                break
+            backfilled = check_and_backfill(symbol) # This function now checks shutdown_requested
+            total_backfilled += backfilled
+        
+        if not shutdown_requested:
+            if total_backfilled > 0:
+                logger.info(f"📈 Historical backfill completed: {total_backfilled} total records")
+            else:
+                logger.info("✅ No historical backfill needed, data is up to date")
+        
+        # Now do live harvest
+        if not shutdown_requested:
+            logger.info("Starting live data harvest...")
+            success_count = 0
+            for symbol_idx, symbol_name in enumerate(SYMBOLS):
+                if shutdown_requested:
+                    logger.info("Shutdown requested during live harvest.")
+                    break
+                logger.info(f"Fetching live data for {symbol_name}")
+                
+                binance_api_symbol = BINANCE_SYMBOLS[symbol_idx] if symbol_idx < len(BINANCE_SYMBOLS) else symbol_name
         kline_data = fetch_kline_data(binance_api_symbol)
         
-        if kline_data:
-            store_data(symbol_name, kline_data)
-            success_count += 1
+                if kline_data:
+                    store_data(symbol_name, kline_data) # This function now handles its own conn
+                    success_count += 1
+                else:
+                    logger.warning(f"Failed to fetch live data for {symbol_name}")
+            
+            if not shutdown_requested:
+                logger.info(f"🎯 Live harvest completed: {success_count}/{len(SYMBOLS)} symbols successful")
+
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt received. Requesting shutdown...")
+        shutdown_requested = True
+    except Exception as e:
+        logger.error(f"An unexpected error occurred in main: {e}", exc_info=True)
+    finally:
+        if shutdown_requested:
+            logger.info("Shutdown process initiated in main. Exiting.")
         else:
-            logger.warning(f"Failed to fetch live data for {symbol_name}")
-    
-    logger.info(f"🎯 Live harvest completed: {success_count}/{len(SYMBOLS)} symbols successful")
+            logger.info("Main process completed normally.")
 
 if __name__ == "__main__":
+    # Register signal handlers
+    signal.signal(signal.SIGINT, handle_shutdown_signal)
+    signal.signal(signal.SIGTERM, handle_shutdown_signal)
+    
     main() 
