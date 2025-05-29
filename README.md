@@ -49,10 +49,15 @@ TickerML/
 │   └── requirements.txt  # PC dependencies
 ├── scripts/              # Utility scripts
 │   ├── setup.sh          # Environment setup
-│   ├── test_data_collection.py # Comprehensive testing
-│   ├── test_summary.py   # Status overview
 │   ├── setup_test_env.py # Test environment setup
-│   └── test_pipeline.py  # Full pipeline testing
+│   └── verify_gemma_config.py # Gemma configuration verifier
+├── tests/                # Test scripts
+│   ├── test_data_collection.py # Comprehensive data collection tests
+│   ├── test_pipeline.py  # Full pipeline tests
+│   ├── test_features.py  # Feature engineering tests
+│   ├── test_news_harvest.py # News harvesting tests
+│   ├── test_sentiment.py # Sentiment analysis tests
+│   └── test_summary.py   # Status overview tests
 ├── docs/                 # Documentation
 │   └── TESTING_GUIDE.md  # Detailed testing guide
 ├── notebooks/            # Jupyter notebooks
@@ -78,10 +83,10 @@ TickerML/
 python scripts/setup_test_env.py
 
 # Run comprehensive tests
-python scripts/test_data_collection.py
+python tests/test_data_collection.py
 
 # Check status
-python scripts/test_summary.py
+python tests/test_summary.py
 ```
 
 #### **Manual Data Collection**
@@ -225,9 +230,9 @@ python pc/export_quantize.py  # ONNX export & quantization
 | `raspberry_pi/news_harvest.py` | News collection and sentiment analysis |
 | `raspberry_pi/export_etl.py` | CSV export |
 | `raspberry_pi/dashboard.py` | Web dashboard |
-| `scripts/test_data_collection.py` | Comprehensive testing |
-| `scripts/test_news_harvest.py` | News harvesting tests |
-| `scripts/test_summary.py` | Status overview |
+| `tests/test_data_collection.py` | Comprehensive testing |
+| `tests/test_news_harvest.py` | News harvesting tests |
+| `tests/test_summary.py` | Status overview |
 | `scripts/setup_test_env.py` | Test environment setup |
 
 ## Configuration
@@ -302,22 +307,22 @@ python raspberry_pi/harvest.py
 python raspberry_pi/news_harvest.py
 
 # Test news harvesting functionality
-python scripts/test_news_harvest.py
+python tests/test_news_harvest.py
 
 # Setup test environment
 python scripts/setup_test_env.py
 
 # Run comprehensive data collection tests
-python scripts/test_data_collection.py
+python tests/test_data_collection.py
 
 # Check system status
-python scripts/test_summary.py
+python tests/test_summary.py
 
 # Verify Gemma 3 configuration
 python scripts/verify_gemma_config.py
 
 # Test sentiment analysis with Gemma 3
-python scripts/test_sentiment.py
+python tests/test_sentiment.py
 
 # Test feature engineering
 python pc/features.py --test
@@ -329,7 +334,7 @@ python pc/train.py --epochs 5 --batch_size 16
 python raspberry_pi/infer.py --test
 
 # Run full pipeline test
-python scripts/test_pipeline.py
+python tests/test_pipeline.py
 ```
 
 ### Monitoring

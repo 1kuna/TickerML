@@ -14,8 +14,10 @@ def main():
     print("🎯 TickerML Data Collection Pipeline - Test Summary")
     print("=" * 60)
     
+    project_root = Path(__file__).resolve().parent.parent
+    
     # Check database
-    db_path = Path("data/db/crypto_data.db")
+    db_path = project_root / "data" / "db" / "crypto_data.db"
     if db_path.exists():
         print("✅ Database: Created and accessible")
         
@@ -55,7 +57,7 @@ def main():
         print("❌ Database: Not found")
     
     # Check CSV exports
-    dumps_path = Path("data/dumps")
+    dumps_path = project_root / "data" / "dumps"
     if dumps_path.exists():
         csv_files = list(dumps_path.glob("*.csv"))
         if csv_files:
@@ -98,7 +100,8 @@ def main():
     print("\n🚀 Next Steps:")
     print("1. Set up automated collection:")
     print("   crontab -e")
-    print("   * * * * * cd /path/to/TickerML && python raspberry_pi/harvest.py")
+    # Use project_root to show a more accurate example path, though user needs to replace /path/to
+    print(f"   * * * * * cd {project_root} && python raspberry_pi/harvest.py")
     print()
     print("2. Start dashboard (after collecting more data):")
     print("   python raspberry_pi/dashboard.py")

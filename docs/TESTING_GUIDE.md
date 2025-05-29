@@ -16,7 +16,7 @@ mkdir -p data/db data/dumps data/features logs models/checkpoints models/onnx
 ### 2. **Run All Tests**
 ```bash
 # Run comprehensive test suite
-python scripts/test_data_collection.py
+python tests/test_data_collection.py
 ```
 
 This will run 6 different tests and give you a complete overview of your pipeline health.
@@ -134,7 +134,7 @@ python raspberry_pi/dashboard.py
 ### **Run Live Collection Test**
 ```bash
 # Test continuous collection for 5 minutes
-python scripts/test_data_collection.py
+python tests/test_data_collection.py
 # When prompted, choose 'y' for continuous test
 ```
 

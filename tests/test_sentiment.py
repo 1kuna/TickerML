@@ -5,9 +5,13 @@ Test script for Gemma 3 sentiment analysis
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'pc'))
 
-from features import analyze_sentiment_with_gemma3
+# Add project root to sys.path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from pc.features import analyze_sentiment_with_gemma3
 
 def test_sentiment_analysis():
     """Test the Gemma 3 sentiment analysis function"""

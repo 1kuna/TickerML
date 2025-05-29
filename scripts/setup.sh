@@ -107,6 +107,7 @@ mkdir -p models/checkpoints
 mkdir -p models/onnx
 mkdir -p logs
 mkdir -p raspberry_pi/templates
+mkdir -p notebooks # Ensure notebooks directory is created
 
 print_success "Directory structure created"
 
@@ -171,7 +172,7 @@ elif [ "$PLATFORM" == "pc" ]; then
     
     # Create Jupyter notebook for analysis
     print_status "Creating analysis notebook..."
-    cat > analysis.ipynb << 'EOF'
+    cat > notebooks/analysis.ipynb << 'EOF'
 {
  "cells": [
   {
