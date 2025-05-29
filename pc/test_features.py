@@ -65,6 +65,7 @@ class TestTechnicalIndicators(unittest.TestCase):
 
     def _create_sample_df(self, num_rows=100):
         """Creates a sample DataFrame for testing."""
+        np.random.seed(0)  # Set seed for reproducibility
         data = {
             'timestamp': pd.to_datetime(np.arange(1672531200000, 1672531200000 + num_rows * 60000, 60000), unit='ms'),
             'open': np.random.rand(num_rows) * 100 + 1000,
