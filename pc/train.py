@@ -11,6 +11,9 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import numpy as np
 import logging
+import signal
+import os
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
@@ -18,6 +21,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, accuracy_score, roc_auc_score
 import json
 import math
+
+# Global shutdown flag
+shutdown_requested = False
+
+# Signal handler
+def handle_shutdown_signal(signum, frame):
+    global shutdown_requested
+    logger.info(f"Received signal {signum}. Requesting shutdown...")
+    shutdown_requested = True
 
 # Configure logging
 logging.basicConfig(
@@ -29,6 +41,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 FEATURES_PATH = Path(__file__).parent.parent / "data" / "features"
 MODELS_PATH = Path(__file__).parent.parent / "models" / "checkpoints"
+    FEATURE_SCALER_FILENAME = "feature_scaler.pkl"
 SEQUENCE_LENGTH = 60  # 60 minutes of history
 BATCH_SIZE = 32
 EPOCHS = 100
@@ -231,9 +244,22 @@ def load_and_prepare_data():
         combined_features = scaler.fit_transform(combined_features)
         
         # Save scaler for inference
-        scaler_path = MODELS_PATH / "feature_scaler.pkl"
+        scaler_path = MODELS_PATH / FEATURE_SCALER_FILENAME
         MODELS_PATH.mkdir(parents=True, exist_ok=True)
-        pd.to_pickle(scaler, scaler_path)
+        
+        # Save to a temporary file first
+        try:
+            with tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=MODELS_PATH, suffix='.tmp') as tmp_file:
+                pd.to_pickle(scaler, tmp_file.name)
+                tmp_file_path = tmp_file.name
+            # Rename to the final destination
+            os.rename(tmp_file_path, scaler_path)
+            logger.info(f"Feature scaler saved to {scaler_path}")
+        except Exception as e:
+            logger.error(f"Error saving feature scaler: {e}")
+            if 'tmp_file_path' in locals() and os.path.exists(tmp_file_path):
+                os.remove(tmp_file_path) # Clean up temp file
+            raise # Re-raise the exception if saving failed
         
         # Split data
         train_features, val_features, train_reg, val_reg, train_cls, val_cls = train_test_split(
@@ -368,9 +394,25 @@ def save_checkpoint(model, optimizer, epoch, loss, metrics, feature_columns):
         }
     }
     
-    checkpoint_path = MODELS_PATH / f"crypto_transformer_epoch_{epoch}.pt"
-    torch.save(checkpoint, checkpoint_path)
-    logger.info(f"Saved checkpoint: {checkpoint_path}")
+    checkpoint_filename = f"crypto_transformer_epoch_{epoch}.pt"
+    checkpoint_path = MODELS_PATH / checkpoint_filename
+    
+    # Save to a temporary file first
+    try:
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=MODELS_PATH, suffix='.tmp') as tmp_file:
+            torch.save(checkpoint, tmp_file.name)
+            tmp_file_path = tmp_file.name
+        # Rename to the final destination
+        os.rename(tmp_file_path, checkpoint_path)
+        logger.info(f"Saved checkpoint: {checkpoint_path}")
+    except Exception as e:
+        logger.error(f"Error saving checkpoint {checkpoint_path}: {e}")
+        if 'tmp_file_path' in locals() and os.path.exists(tmp_file_path):
+            os.remove(tmp_file_path) # Clean up temp file
+        # It might be better not to re-raise here if called during shutdown,
+        # to allow other cleanup to proceed. But for normal saves, re-raising is fine.
+        # For now, let's re-raise.
+        raise
     
     return checkpoint_path
 
@@ -395,10 +437,14 @@ def main():
     best_val_loss = float('inf')
     best_checkpoint_path = None
     
-    for epoch in range(EPOCHS):
-        logger.info(f"Epoch {epoch + 1}/{EPOCHS}")
-        
-        # Train
+    try:
+        for epoch in range(EPOCHS):
+            if shutdown_requested:
+                logger.info("Shutdown requested, breaking training loop.")
+                break
+            logger.info(f"Epoch {epoch + 1}/{EPOCHS}")
+            
+            # Train
         train_loss, train_reg_loss, train_cls_loss = train_epoch(
             model, train_loader, optimizer, criterion_reg, criterion_cls
         )
@@ -431,12 +477,67 @@ def main():
             logger.info(f"New best model saved with validation loss: {val_loss:.4f}")
         
         # Early stopping
-        if optimizer.param_groups[0]['lr'] < 1e-6:
+            if optimizer.param_groups[0]['lr'] < 1e-6 and not shutdown_requested:
             logger.info("Learning rate too small, stopping training")
             break
+            
+            if shutdown_requested:
+                logger.info("Shutdown requested during epoch, saving checkpoint before exiting.")
+                # Potentially save a checkpoint here if needed before full exit
+                break
+                
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt received, requesting shutdown...")
+        global shutdown_requested
+        shutdown_requested = True
+    finally:
+        if shutdown_requested:
+            logger.info("Shutdown process initiated. Performing final cleanup.")
+            # Save a final checkpoint if model, optimizer, epoch, and feature_columns are available
+            # and at least one training step in an epoch was completed.
+            if ('model' in locals() and 
+                'optimizer' in locals() and 
+                'epoch' in locals() and # epoch from the training loop
+                'feature_columns' in locals()):
+                
+                current_epoch_for_save = epoch # epoch value from the loop when interruption occurred
+                
+                # Determine loss and metrics for the final checkpoint
+                loss_for_save = float('nan')
+                metrics_for_save = {'status': 'shutdown_save'}
+
+                if 'val_loss' in locals() and 'metrics' in locals(): # If validation completed for this epoch
+                    loss_for_save = val_loss
+                    metrics_for_save.update(metrics)
+                    logger.info(f"Using validation loss ({loss_for_save:.4f}) and metrics for final checkpoint of epoch {current_epoch_for_save}.")
+                elif 'train_loss' in locals(): # If only training completed for this epoch
+                    loss_for_save = train_loss
+                    logger.info(f"Using training loss ({loss_for_save:.4f}) for final checkpoint of epoch {current_epoch_for_save}. Validation metrics unavailable.")
+                else: # If neither training nor validation completed for the current epoch value
+                    logger.info(f"No training or validation loss available for epoch {current_epoch_for_save}. Saving checkpoint with NaN loss.")
+
+                try:
+                    logger.info(f"Attempting to save final model state for epoch {current_epoch_for_save} before shutdown...")
+                    save_checkpoint(model, optimizer, current_epoch_for_save, loss_for_save, metrics_for_save, feature_columns)
+                    logger.info(f"Final checkpoint for epoch {current_epoch_for_save} saved.")
+                except Exception as e:
+                    logger.error(f"Could not save final checkpoint for epoch {current_epoch_for_save}: {e}")
+            else:
+                logger.info("Skipping final checkpoint save as essential training information (model, optimizer, epoch, feature_columns) is not available.")
+        else:
+            logger.info(f"Training completed. Best model: {best_checkpoint_path if best_checkpoint_path else 'N/A'}")
+            
+    # This return needs to be outside the finally that belongs to try-except KeyboardInterrupt
+    if shutdown_requested and not best_checkpoint_path:
+         logger.warning("Shutdown occurred before any best model was saved.")
+         # Potentially return a path to the shutdown-saved checkpoint if available and if design requires
+         # For now, stick to returning best_checkpoint_path
     
-    logger.info(f"Training completed. Best model: {best_checkpoint_path}")
     return best_checkpoint_path
 
 if __name__ == "__main__":
+    # Register signal handlers
+    signal.signal(signal.SIGINT, handle_shutdown_signal)
+    signal.signal(signal.SIGTERM, handle_shutdown_signal)
+    
     main() 

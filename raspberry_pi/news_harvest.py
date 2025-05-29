@@ -14,6 +14,16 @@ import yaml
 import os
 import time
 import hashlib
+import signal # Added for graceful shutdown
+
+# Global shutdown flag
+shutdown_requested = False
+
+# Signal handler
+def handle_shutdown_signal(signum, frame):
+    global shutdown_requested
+    logger.info(f"Received signal {signum}. Requesting shutdown...")
+    shutdown_requested = True
 
 # Configure logging
 logging.basicConfig(
@@ -84,11 +94,12 @@ UPDATE_INTERVAL_MINUTES = config['update_interval_minutes']
 def init_news_database():
     """Initialize SQLite database with news tables"""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    
-    conn = sqlite3.connect(str(DB_PATH))
-    cursor = conn.cursor()
-    
-    # Create news articles table
+    conn = None
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        cursor = conn.cursor()
+        
+        # Create news articles table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS news_articles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,9 +147,14 @@ def init_news_database():
         ON news_sentiment_hourly(symbol, hour_timestamp)
     """)
     
-    conn.commit()
-    conn.close()
-    logger.info(f"News database tables initialized at {DB_PATH}")
+        conn.commit()
+        logger.info(f"News database tables initialized at {DB_PATH}")
+    except sqlite3.Error as e:
+        logger.error(f"Database initialization error: {e}")
+        raise # Re-raise to indicate critical failure
+    finally:
+        if conn:
+            conn.close()
 
 def generate_article_hash(title, url, published_at):
     """Generate a unique hash for an article to prevent duplicates"""
@@ -260,11 +276,13 @@ def store_news_article(symbol, article, sentiment_score=None):
             published_timestamp
         )
         
-        conn = sqlite3.connect(str(DB_PATH))
-        cursor = conn.cursor()
-        
-        # Insert article (will be ignored if hash already exists)
-        cursor.execute("""
+        conn = None
+        try:
+            conn = sqlite3.connect(str(DB_PATH))
+            cursor = conn.cursor()
+            
+            # Insert article (will be ignored if hash already exists)
+            cursor.execute("""
             INSERT OR IGNORE INTO news_articles 
             (article_hash, symbol, title, description, content, source, url, 
              published_at, fetched_at, sentiment_score, sentiment_processed_at)
@@ -283,21 +301,24 @@ def store_news_article(symbol, article, sentiment_score=None):
             int(time.time() * 1000) if sentiment_score is not None else None
         ))
         
-        rows_affected = cursor.rowcount
-        conn.commit()
-        conn.close()
-        
-        if rows_affected > 0:
-            logger.debug(f"Stored new article: {article.get('title', '')[:50]}...")
-        
-        return rows_affected > 0
-        
-    except Exception as e:
-        logger.error(f"Error storing article: {e}")
-        return False
+            rows_affected = cursor.rowcount
+            conn.commit()
+            
+            if rows_affected > 0:
+                logger.debug(f"Stored new article: {article.get('title', '')[:50]}...")
+            
+            return rows_affected > 0
+            
+        except Exception as e:
+            logger.error(f"Error storing article: {e}")
+            return False
+        finally:
+            if conn:
+                conn.close()
 
 def update_hourly_sentiment(symbol):
     """Update hourly sentiment aggregates for a symbol"""
+    conn = None
     try:
         conn = sqlite3.connect(str(DB_PATH))
         cursor = conn.cursor()
@@ -323,8 +344,8 @@ def update_hourly_sentiment(symbol):
         articles = cursor.fetchall()
         
         if not articles:
-            logger.info(f"No articles with sentiment found for {symbol}")
-            conn.close()
+            logger.info(f"No articles with sentiment found for {symbol} in the last 24 hours.")
+            # conn.close() will be handled by finally
             return
         
         # Group by hour and calculate averages
@@ -349,12 +370,13 @@ def update_hourly_sentiment(symbol):
             """, (symbol, hour_timestamp, avg_sentiment, article_count))
         
         conn.commit()
-        conn.close()
-        
         logger.info(f"Updated hourly sentiment for {symbol}: {len(hourly_data)} hours processed")
         
     except Exception as e:
         logger.error(f"Error updating hourly sentiment for {symbol}: {e}")
+    finally:
+        if conn:
+            conn.close()
 
 def harvest_news_for_symbol(symbol):
     """Harvest news for a single symbol"""
@@ -362,10 +384,19 @@ def harvest_news_for_symbol(symbol):
     
     # Fetch articles - use longer time range for testing (24 hours)
     hours_back = 24  # Use 24 hours for testing instead of short interval
+    
+    # Check shutdown flag before making API call
+    if shutdown_requested:
+        logger.info(f"Shutdown requested before fetching news for {symbol}.")
+        return
+
     articles = fetch_news_for_symbol(symbol, hours_back=hours_back)
     
     new_articles_count = 0
     for article in articles:
+        if shutdown_requested:
+            logger.info(f"Shutdown requested during article processing for {symbol}.")
+            break
         try:
             # Analyze sentiment
             text = f"{article.get('title', '')} {article.get('description', '')}"
@@ -376,40 +407,74 @@ def harvest_news_for_symbol(symbol):
             sentiment_score = analyze_sentiment_simple(text)
             
             # Store article
-            if store_news_article(symbol, article, sentiment_score):
+            if store_news_article(symbol, article, sentiment_score): # This function now handles its own conn
                 new_articles_count += 1
                 
-        except (ImportError, RuntimeError) as e:
-            logger.error(f"Sentiment analysis failed for {symbol}: {e}")
-            logger.error("Cannot process articles without Gemma 3 sentiment analysis - stopping harvest")
-            raise e
+        except (ImportError, RuntimeError) as e: # Specific errors that should stop this symbol's harvest
+            logger.error(f"Critical sentiment analysis failure for {symbol}: {e}. Stopping harvest for this symbol.")
+            # No re-raise here to allow other symbols to be processed if desired,
+            # or re-raise if one failure should stop all. For now, stop for this symbol.
+            break # Stop processing articles for this symbol
         except Exception as e:
             logger.error(f"Error processing article '{article.get('title', 'No title')}': {e}")
-            continue  # Skip this article but continue with others
+            continue  # Skip this article but continue with others for this symbol
     
-    # Update hourly aggregates
-    if new_articles_count > 0:
-        update_hourly_sentiment(symbol)
+    # Update hourly aggregates if not shutting down and new articles were processed
+    if not shutdown_requested and new_articles_count > 0:
+        update_hourly_sentiment(symbol) # This function now handles its own conn
         logger.info(f"Stored {new_articles_count} new articles for {symbol}")
-    else:
-        logger.info(f"No new articles found for {symbol}")
+    elif new_articles_count == 0 and not shutdown_requested:
+        logger.info(f"No new articles found or processed for {symbol}")
+    elif shutdown_requested:
+        logger.info(f"Shutdown requested, hourly sentiment update may be skipped for {symbol}.")
+
 
 def main():
     """Main news harvesting function"""
+    global shutdown_requested
     logger.info("Starting news harvesting...")
-    
-    # Initialize database
-    init_news_database()
-    
-    # Harvest news for each symbol
-    for symbol in SYMBOLS:
+
+    try:
+        # Initialize database
         try:
-            harvest_news_for_symbol(symbol)
-            time.sleep(1)  # Rate limiting
+            init_news_database()
         except Exception as e:
-            logger.error(f"Error harvesting news for {symbol}: {e}")
-    
-    logger.info("News harvesting completed")
+            logger.error(f"Failed to initialize news database: {e}. Exiting.")
+            return
+
+        if shutdown_requested:
+            logger.info("Shutdown requested before news harvesting loop.")
+            return
+            
+        # Harvest news for each symbol
+        for symbol in SYMBOLS:
+            if shutdown_requested:
+                logger.info("Shutdown requested, skipping further symbols.")
+                break
+            try:
+                harvest_news_for_symbol(symbol) # This function now checks shutdown_requested
+                if not shutdown_requested: # Avoid sleep if shutting down
+                    time.sleep(1)  # Rate limiting
+            except Exception as e: # Catch errors from harvest_news_for_symbol if it raises one
+                logger.error(f"Error harvesting news for {symbol}: {e}")
+        
+        if not shutdown_requested:
+            logger.info("News harvesting completed for all symbols.")
+
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt received. Requesting shutdown...")
+        shutdown_requested = True
+    except Exception as e:
+        logger.error(f"An unexpected error occurred in main: {e}", exc_info=True)
+    finally:
+        if shutdown_requested:
+            logger.info("News harvesting shutdown process initiated.")
+        else:
+            logger.info("News harvesting run completed normally.")
 
 if __name__ == "__main__":
+    # Register signal handlers
+    signal.signal(signal.SIGINT, handle_shutdown_signal)
+    signal.signal(signal.SIGTERM, handle_shutdown_signal)
+    
     main() 

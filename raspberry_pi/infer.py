@@ -14,6 +14,17 @@ from pathlib import Path
 import json
 import yaml
 import pickle
+import signal
+import os
+
+# Global shutdown flag
+shutdown_requested = False
+
+# Signal handler
+def handle_shutdown_signal(signum, frame):
+    global shutdown_requested
+    logger.info(f"Received signal {signum}. Requesting shutdown...")
+    shutdown_requested = True
 
 # Configure logging
 logging.basicConfig(
@@ -139,6 +150,7 @@ from ta.trend import MACD, SMAIndicator, EMAIndicator, CCIIndicator # macd, macd
 
 def init_predictions_table():
     """Initialize predictions table in database"""
+    conn = None
     try:
         conn = sqlite3.connect(str(DB_PATH))
         cursor = conn.cursor()
@@ -166,12 +178,15 @@ def init_predictions_table():
         """)
         
         conn.commit()
-        conn.close()
         logger.info("Predictions table initialized")
         
     except sqlite3.Error as e:
         logger.error(f"Error initializing predictions table: {e}")
-        raise
+        # Potentially re-raise if critical, or handle to allow startup to continue if possible
+        raise 
+    finally:
+        if conn:
+            conn.close()
 
 def load_onnx_model():
     """Load quantized ONNX model"""
@@ -196,16 +211,22 @@ def load_onnx_model():
 
 def get_latest_features(symbol, sequence_length=60):
     """Get latest features for a symbol from database"""
+    conn = None
     try:
         conn = sqlite3.connect(str(DB_PATH)) # Use str(DB_PATH)
         
         # Get latest timestamp
         latest_query = "SELECT MAX(timestamp) FROM ohlcv WHERE symbol = ?"
-        latest_timestamp = pd.read_sql_query(latest_query, conn, params=(symbol,)).iloc[0, 0]
+        # Execute query using cursor for better error handling and resource management
+        cursor = conn.cursor()
+        cursor.execute(latest_query, (symbol,))
+        result = cursor.fetchone()
         
-        if latest_timestamp is None:
-            logger.warning(f"No data found for {symbol}")
+        if result is None or result[0] is None:
+            logger.warning(f"No data found for {symbol} in ohlcv table.")
+            # conn.close() already handled by finally
             return None
+        latest_timestamp = result[0]
         
         # Get last N minutes of data
         start_timestamp = latest_timestamp - (sequence_length * 60 * 1000)  # Convert to milliseconds
@@ -216,19 +237,19 @@ def get_latest_features(symbol, sequence_length=60):
             WHERE symbol = ? AND timestamp >= ? AND timestamp <= ?
             ORDER BY timestamp ASC
         """
-        
+        # Using pandas read_sql_query, which should ideally manage its own connection if one isn't passed,
+        # but since we pass one, we must manage it.
         df = pd.read_sql_query(query, conn, params=(symbol, start_timestamp, latest_timestamp))
-        conn.close()
+        # conn.close() will be handled by finally block
         
         if len(df) < sequence_length:
             logger.warning(f"Insufficient data for {symbol}: {len(df)} < {sequence_length}")
+            # conn.close() already handled by finally
             return None
         
         # Take last sequence_length records
         df = df.tail(sequence_length).copy()
         
-        # Basic feature engineering (placeholder - should match training features)
-        # features = compute_basic_features(df) # Old call
         features_np = calculate_and_scale_features(df, feature_scaler, LOADED_FEATURE_COLUMNS)
         
         return features_np # This is now a NumPy array
@@ -236,6 +257,9 @@ def get_latest_features(symbol, sequence_length=60):
     except Exception as e:
         logger.error(f"Error getting features for {symbol}: {e}")
         return None
+    finally:
+        if conn:
+            conn.close()
 
 def calculate_and_scale_features(df_ohlcv, scaler, expected_feature_columns):
     """
@@ -446,6 +470,7 @@ def make_prediction(session, features):
 
 def store_prediction(symbol, timestamp, prediction):
     """Store prediction in database"""
+    conn = None
     try:
         conn = sqlite3.connect(str(DB_PATH)) # Use str(DB_PATH)
         cursor = conn.cursor()
@@ -467,7 +492,6 @@ def store_prediction(symbol, timestamp, prediction):
         ))
         
         conn.commit()
-        conn.close()
         
         logger.info(f"Stored prediction for {symbol} at {datetime.fromtimestamp(timestamp/1000)}")
         logger.info(f"  5min: {prediction['prediction_5min']:.4f}, "
@@ -478,43 +502,83 @@ def store_prediction(symbol, timestamp, prediction):
         
     except sqlite3.Error as e:
         logger.error(f"Error storing prediction for {symbol}: {e}")
+    finally:
+        if conn:
+            conn.close()
 
 def main():
     """Main inference function"""
+    global shutdown_requested
     logger.info("Starting inference service")
-    
-    # Initialize predictions table
-    init_predictions_table()
-    
-    # Load ONNX model
-    session = load_onnx_model()
-    if session is None:
-        logger.error("Failed to load model, exiting")
-        return
-    
-    # Get current timestamp
-    current_timestamp = int(datetime.now().timestamp() * 1000)
-    
-    # Make predictions for each symbol
-    for symbol in SYMBOLS:
-        logger.info(f"Making prediction for {symbol}")
+
+    try:
+        # Initialize predictions table
+        try:
+            init_predictions_table()
+        except Exception as e:
+            logger.error(f"Failed to initialize predictions table: {e}. Exiting.")
+            return
+
+        # Load ONNX model
+        session = load_onnx_model()
+        if session is None:
+            logger.error("Failed to load model, exiting")
+            return
         
-        # Get latest features
-        features = get_latest_features(symbol, SEQUENCE_LENGTH)
-        if features is None:
-            logger.warning(f"Skipping {symbol} due to insufficient data")
-            continue
+        if shutdown_requested:
+            logger.info("Shutdown requested before inference loop.")
+            return
+
+        # Get current timestamp (once for all symbols in this run)
+        current_timestamp = int(datetime.now().timestamp() * 1000)
         
-        # Make prediction
-        prediction = make_prediction(session, features)
-        if prediction is None:
-            logger.warning(f"Failed to make prediction for {symbol}")
-            continue
+        # Make predictions for each symbol
+        for symbol in SYMBOLS:
+            if shutdown_requested:
+                logger.info("Shutdown requested during symbol processing loop.")
+                break
+            logger.info(f"Making prediction for {symbol}")
+            
+            # Get latest features
+            features = get_latest_features(symbol, SEQUENCE_LENGTH)
+            if features is None:
+                logger.warning(f"Skipping {symbol} due to insufficient data")
+                continue
+            
+            if shutdown_requested: # Check again after potentially long feature calculation
+                logger.info("Shutdown requested after feature calculation.")
+                break
+
+            # Make prediction
+            prediction = make_prediction(session, features)
+            if prediction is None:
+                logger.warning(f"Failed to make prediction for {symbol}")
+                continue
+            
+            if shutdown_requested: # Check again after potentially long prediction
+                logger.info("Shutdown requested after model prediction.")
+                break
+
+            # Store prediction
+            store_prediction(symbol, current_timestamp, prediction)
         
-        # Store prediction
-        store_prediction(symbol, current_timestamp, prediction)
-    
-    logger.info("Inference completed")
+        if not shutdown_requested:
+            logger.info("Inference completed for all symbols.")
+
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt received. Requesting shutdown...")
+        shutdown_requested = True
+    except Exception as e:
+        logger.error(f"An unexpected error occurred in main: {e}", exc_info=True)
+    finally:
+        if shutdown_requested:
+            logger.info("Inference service shutdown process initiated.")
+        else:
+            logger.info("Inference service run completed normally.")
 
 if __name__ == "__main__":
+    # Register signal handlers
+    signal.signal(signal.SIGINT, handle_shutdown_signal)
+    signal.signal(signal.SIGTERM, handle_shutdown_signal)
+    
     main() 
