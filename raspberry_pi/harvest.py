@@ -2,13 +2,14 @@
 """
 Minute-level crypto data harvester for Raspberry Pi
 Fetches BTC/USD and ETH/USD data with Binance.US primary, CoinGecko fallback
+Automatically backfills missing historical data up to 7 days, then continues live
 """
 
 import sqlite3
 import requests
 import time
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import yaml
 
@@ -30,6 +31,11 @@ COINGECKO_SYMBOLS = {
     "BTCUSD": "bitcoin",
     "ETHUSD": "ethereum"
 }
+
+# Rate limiting and backfill configuration
+BINANCE_RATE_LIMIT_PER_MINUTE = 1200
+BATCH_SIZE = 500
+MAX_BACKFILL_DAYS = 7  # Automatically backfill up to 7 days
 
 def load_config():
     """Loads configuration from YAML file, with fallbacks to defaults."""
@@ -251,33 +257,176 @@ def store_data(symbol, kline_data):
     except sqlite3.Error as e:
         logger.error(f"Database error storing {symbol}: {e}")
 
+def fetch_historical_klines_binance_us(symbol, start_time, end_time, limit=500):
+    """Fetch historical kline data from Binance.US with rate limiting"""
+    try:
+        url = f"{BINANCE_US_API_BASE}/klines"
+        params = {
+            'symbol': symbol,
+            'interval': '1m',
+            'startTime': start_time,
+            'endTime': end_time,
+            'limit': limit
+        }
+        
+        # Rate limiting: ensure we don't exceed limits
+        time.sleep(60 / BINANCE_RATE_LIMIT_PER_MINUTE)
+        
+        response = requests.get(url, params=params, timeout=30)
+        response.raise_for_status()
+        
+        data = response.json()
+        if not data:
+            return []
+        
+        klines = []
+        for kline in data:
+            klines.append({
+                'timestamp': int(kline[0]),
+                'open': float(kline[1]),
+                'high': float(kline[2]),
+                'low': float(kline[3]),
+                'close': float(kline[4]),
+                'volume': float(kline[5])
+            })
+        
+        return klines
+        
+    except requests.RequestException:
+        return []
+    except (ValueError, IndexError):
+        return []
+
+def store_historical_data_batch(symbol, klines_data):
+    """Store multiple kline records in batch"""
+    if not klines_data:
+        return 0
+    
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        cursor = conn.cursor()
+        
+        records = []
+        for kline in klines_data:
+            records.append((
+                kline['timestamp'],
+                symbol,
+                kline['open'],
+                kline['high'],
+                kline['low'],
+                kline['close'],
+                kline['volume']
+            ))
+        
+        cursor.executemany("""
+            INSERT OR IGNORE INTO ohlcv 
+            (timestamp, symbol, open, high, low, close, volume)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, records)
+        
+        inserted_count = cursor.rowcount
+        conn.commit()
+        conn.close()
+        
+        return inserted_count
+        
+    except sqlite3.Error:
+        return 0
+
+def check_and_backfill(symbol):
+    """Check for missing data and backfill automatically up to MAX_BACKFILL_DAYS"""
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        cursor = conn.cursor()
+        
+        # Check if we have any data for this symbol
+        cursor.execute("SELECT MIN(timestamp), MAX(timestamp) FROM ohlcv WHERE symbol = ?", (symbol,))
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result[0]:  # No data exists
+            logger.info(f"No existing data for {symbol}, starting {MAX_BACKFILL_DAYS}-day backfill")
+            end_time = datetime.now()
+            start_time = end_time - timedelta(days=MAX_BACKFILL_DAYS)
+        else:
+            # Check if we have recent data (within last hour)
+            latest_timestamp = result[1]
+            latest_datetime = datetime.fromtimestamp(latest_timestamp / 1000)
+            now = datetime.now()
+            
+            if (now - latest_datetime).total_seconds() < 3600:  # Less than 1 hour old
+                logger.info(f"Recent data exists for {symbol}, skipping backfill")
+                return 0
+            
+            # Fill gap from latest data to now
+            logger.info(f"Gap detected for {symbol}, backfilling from {latest_datetime}")
+            start_time = latest_datetime
+            end_time = now
+        
+        # Perform backfill
+        total_inserted = 0
+        current_time = start_time
+        
+        while current_time < end_time:
+            batch_end = min(current_time + timedelta(hours=8), end_time)  # 8 hours per batch
+            
+            start_ts = int(current_time.timestamp() * 1000)
+            end_ts = int(batch_end.timestamp() * 1000)
+            
+            historical_data = fetch_historical_klines_binance_us(symbol, start_ts, end_ts, BATCH_SIZE)
+            
+            if historical_data:
+                inserted = store_historical_data_batch(symbol, historical_data)
+                total_inserted += inserted
+                if inserted > 0:
+                    logger.info(f"Backfilled {inserted} records for {symbol}")
+            
+            current_time = batch_end
+        
+        if total_inserted > 0:
+            logger.info(f"✅ Backfill completed for {symbol}: {total_inserted} records")
+        
+        return total_inserted
+        
+    except Exception as e:
+        logger.error(f"Backfill error for {symbol}: {e}")
+        return 0
+
 def main():
-    """Main harvesting function"""
-    logger.info("Starting crypto data harvest (Binance.US + CoinGecko fallback)")
+    """Main function: auto-backfill missing data, then live harvest"""
+    logger.info("Starting crypto data harvest with automatic backfill")
     
     # Initialize database
     init_database()
     
-    # Fetch data for each symbol
+    # Auto-backfill missing historical data for each symbol
+    logger.info("Checking for missing historical data...")
+    total_backfilled = 0
+    for symbol in SYMBOLS:
+        backfilled = check_and_backfill(symbol)
+        total_backfilled += backfilled
+    
+    if total_backfilled > 0:
+        logger.info(f"📈 Historical backfill completed: {total_backfilled} total records")
+    else:
+        logger.info("✅ No historical backfill needed, data is up to date")
+    
+    # Now do live harvest
+    logger.info("Starting live data harvest...")
     success_count = 0
-    # Iterate over SYMBOLS from config
     for symbol_idx, symbol_name in enumerate(SYMBOLS):
-        logger.info(f"Fetching data for {symbol_name} (from config)")
+        logger.info(f"Fetching live data for {symbol_name}")
         
-        # Determine the correct symbol format for Binance.US API call
-        # This assumes that BINANCE_SYMBOLS from config matches the order of SYMBOLS
         binance_api_symbol = BINANCE_SYMBOLS[symbol_idx] if symbol_idx < len(BINANCE_SYMBOLS) else symbol_name
-        logger.info(f"Using API symbol {binance_api_symbol} for Binance.US call.")
-
-        kline_data = fetch_kline_data(binance_api_symbol) # Pass the API-specific symbol
+        kline_data = fetch_kline_data(binance_api_symbol)
         
         if kline_data:
-            store_data(symbol_name, kline_data) # Store with the standardized symbol name
+            store_data(symbol_name, kline_data)
             success_count += 1
         else:
-            logger.warning(f"Failed to fetch data for {symbol_name}")
+            logger.warning(f"Failed to fetch live data for {symbol_name}")
     
-    logger.info(f"Harvest completed: {success_count}/{len(SYMBOLS)} symbols successful")
+    logger.info(f"🎯 Live harvest completed: {success_count}/{len(SYMBOLS)} symbols successful")
 
 if __name__ == "__main__":
     main() 

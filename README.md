@@ -159,6 +159,7 @@ cp config/env.sample .env
 ```bash
 # Add to crontab -e
 * * * * * cd /path/to/TickerML && ./venv/bin/python raspberry_pi/harvest.py >> logs/harvest.log 2>&1
+*/15 * * * * cd /path/to/TickerML && ./venv/bin/python raspberry_pi/news_harvest.py >> logs/news_harvest.log 2>&1
 0 0 * * * cd /path/to/TickerML && ./venv/bin/python raspberry_pi/export_etl.py >> logs/etl.log 2>&1
 */5 * * * * cd /path/to/TickerML && ./venv/bin/python raspberry_pi/infer.py >> logs/infer.log 2>&1
 ```
@@ -202,6 +203,7 @@ python pc/export_quantize.py  # ONNX export & quantization
 ✅ **Working Components:**
 - Database setup and operations
 - Data harvesting from Binance.US
+- News harvesting and sentiment analysis (Raspberry Pi)
 - CSV export functionality
 - Error handling and logging
 - Duplicate prevention
@@ -209,6 +211,7 @@ python pc/export_quantize.py  # ONNX export & quantization
 ✅ **APIs Available:**
 - Binance.US: `https://api.binance.us/api/v3`
 - CoinGecko: `https://api.coingecko.com/api/v3`
+- NewsAPI: `https://newsapi.org/v2` (optional)
 
 ❌ **Known Issues:**
 - Binance.com blocked (geographic restriction)
@@ -219,9 +222,11 @@ python pc/export_quantize.py  # ONNX export & quantization
 | File | Purpose |
 |------|---------|
 | `raspberry_pi/harvest.py` | Data collection (Binance.US + CoinGecko fallback) |
+| `raspberry_pi/news_harvest.py` | News collection and sentiment analysis |
 | `raspberry_pi/export_etl.py` | CSV export |
 | `raspberry_pi/dashboard.py` | Web dashboard |
 | `scripts/test_data_collection.py` | Comprehensive testing |
+| `scripts/test_news_harvest.py` | News harvesting tests |
 | `scripts/test_summary.py` | Status overview |
 | `scripts/setup_test_env.py` | Test environment setup |
 
@@ -253,8 +258,9 @@ Edit `config/config.yaml` to customize:
 | Component | Platform | Primary Tasks | Schedule |
 |-----------|----------|---------------|----------|
 | **Minute-level Harvester** | Raspberry Pi | Call Binance REST API for BTC/USDT & ETH/USDT every 1 min<br>Insert timestamped OHLCV into TS DB | Every minute (cron) |
+| **News Harvester** | Raspberry Pi | Fetch crypto news via NewsAPI<br>Analyze sentiment with Gemma 3 or keyword fallback<br>Store articles and hourly sentiment aggregates in DB | Every 15 minutes (cron) |
 | **ETL Dump & Sync** | Raspberry Pi | At 00:00 UTC, export last 24h of DB → CSV<br>(Optional) SCP to PC or cloud storage | Daily at midnight (cron) |
-| **Feature Engineering** | PC | Read CSVs/DB dumps<br>Compute RSI, MACD, VWAP, Bollinger bands, moving avgs, volatility<br>Pull news headlines via NewsAPI → sentiment score using Gemma 3 | On training run (ad-hoc) |
+| **Feature Engineering** | PC | Read CSVs/DB dumps<br>Compute RSI, MACD, VWAP, Bollinger bands, moving avgs, volatility<br>Use stored sentiment data or fetch fresh via NewsAPI | On training run (ad-hoc) |
 | **Model Training** | PC (GPU/CPU) | Prepare sliding windows (60 min history → targets at 5,10,30 min)<br>Define 4-6-layer Transformer<br>Train with mixed precision, track MSE & classification AUC | As needed (ad-hoc) |
 | **Export & Quantization** | PC | Export best PyTorch checkpoint → ONNX<br>Run ONNX Runtime INT8 quantization | Post-training |
 | **Inference Service** | Raspberry Pi | Load quantized ONNX model<br>Every 5 min: query last 60 min features from DB → predict next intervals<br>Log preds + confidences | Every 5 min (cron or daemon) |
@@ -292,6 +298,12 @@ class TimeSeriesTransformer(nn.Module):
 # Test data harvesting
 python raspberry_pi/harvest.py
 
+# Test news harvesting
+python raspberry_pi/news_harvest.py
+
+# Test news harvesting functionality
+python scripts/test_news_harvest.py
+
 # Setup test environment
 python scripts/setup_test_env.py
 
@@ -326,11 +338,20 @@ python scripts/test_pipeline.py
 # Check harvest logs
 tail -f logs/harvest.log
 
+# Check news harvest logs
+tail -f logs/news_harvest.log
+
 # Check inference logs
 tail -f logs/infer.log
 
 # View database status
 sqlite3 data/db/crypto_data.db "SELECT COUNT(*) FROM ohlcv;"
+
+# View news data status
+sqlite3 data/db/crypto_data.db "SELECT symbol, COUNT(*) FROM news_articles GROUP BY symbol;"
+
+# Check sentiment data
+sqlite3 data/db/crypto_data.db "SELECT symbol, COUNT(*) FROM news_sentiment_hourly GROUP BY symbol;"
 
 # Check model performance
 python -c "

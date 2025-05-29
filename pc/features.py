@@ -290,9 +290,19 @@ Return only the numerical score (e.g., 0.3, -0.7, 0.0):"""
         # Fallback to neutral sentiment
         return 0.0
 
-def fetch_news_sentiment(symbol_name, hours=24):
-    """Fetch news and compute sentiment scores"""
+def fetch_news_sentiment(symbol_name, hours=24, use_stored_data=True):
+    """Fetch news and compute sentiment scores - now supports using stored data"""
     try:
+        if use_stored_data:
+            # Try to use stored news data first
+            sentiment_scores = fetch_stored_sentiment(symbol_name, hours)
+            if sentiment_scores:
+                logger.info(f"Using stored sentiment data for {symbol_name}: {len(sentiment_scores)} records")
+                return sentiment_scores
+            else:
+                logger.warning(f"No stored sentiment data found for {symbol_name}, falling back to live fetch")
+        
+        # Original live fetching code
         if NEWS_API_KEY == "your_newsapi_key_here":
             logger.warning("NewsAPI key not configured, using dummy sentiment")
             return generate_dummy_sentiment(hours)
@@ -365,6 +375,64 @@ def fetch_news_sentiment(symbol_name, hours=24):
     except Exception as e:
         logger.error(f"Error fetching news sentiment: {e}")
         return generate_dummy_sentiment(hours)
+
+def fetch_stored_sentiment(symbol_name, hours=24):
+    """Fetch sentiment data from the database"""
+    try:
+        # Check if database exists and has news tables
+        db_path = Path(__file__).parent.parent / "data" / "db" / "crypto_data.db"
+        if not db_path.exists():
+            return []
+        
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        
+        # Check if news_sentiment_hourly table exists
+        cursor.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='news_sentiment_hourly'
+        """)
+        if not cursor.fetchone():
+            conn.close()
+            return []
+        
+        # Calculate time range
+        end_time = datetime.now()
+        start_time = end_time - timedelta(hours=hours)
+        
+        start_timestamp = int(start_time.timestamp() * 1000)
+        end_timestamp = int(end_time.timestamp() * 1000)
+        
+        # Fetch hourly sentiment data
+        cursor.execute("""
+            SELECT hour_timestamp, avg_sentiment, article_count
+            FROM news_sentiment_hourly 
+            WHERE symbol = ? 
+            AND hour_timestamp >= ? 
+            AND hour_timestamp <= ?
+            ORDER BY hour_timestamp
+        """, (symbol_name, start_timestamp, end_timestamp))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        if not rows:
+            return []
+        
+        # Convert to the format expected by the rest of the code
+        sentiment_scores = []
+        for hour_timestamp, avg_sentiment, article_count in rows:
+            sentiment_scores.append({
+                'timestamp': hour_timestamp,
+                'sentiment': avg_sentiment,
+                'title': f"Aggregated sentiment from {article_count} articles"
+            })
+        
+        return sentiment_scores
+        
+    except Exception as e:
+        logger.error(f"Error fetching stored sentiment: {e}")
+        return []
 
 def generate_dummy_sentiment(hours=24):
     """Generate dummy sentiment data for testing"""
