@@ -97,90 +97,150 @@ def compute_technical_indicators(df):
     try:
         # Make a copy to avoid modifying original
         df = df.copy()
-        
-        # Basic price features
-        df['price_change'] = df['close'].pct_change()
-        df['volume_change'] = df['volume'].pct_change()
-        df['high_low_pct'] = (df['high'] - df['low']) / df['close']
-        df['open_close_pct'] = (df['close'] - df['open']) / df['open']
-        
-        # Moving averages
-        df['sma_5'] = ta.trend.sma_indicator(df['close'], window=5)
-        df['sma_10'] = ta.trend.sma_indicator(df['close'], window=10)
-        df['sma_20'] = ta.trend.sma_indicator(df['close'], window=20)
-        df['sma_50'] = ta.trend.sma_indicator(df['close'], window=50)
-        
-        # Exponential moving averages
-        df['ema_12'] = ta.trend.ema_indicator(df['close'], window=12)
-        df['ema_26'] = ta.trend.ema_indicator(df['close'], window=26)
-        
-        # MACD
-        df['macd'] = ta.trend.macd_diff(df['close'])
-        df['macd_signal'] = ta.trend.macd_signal(df['close'])
-        df['macd_histogram'] = ta.trend.macd(df['close'])
-        
-        # RSI
-        df['rsi'] = ta.momentum.rsi(df['close'], window=14)
-        
-        # Bollinger Bands
-        bb_indicator = ta.volatility.BollingerBands(df['close'], window=20, window_dev=2)
-        df['bb_upper'] = bb_indicator.bollinger_hband()
-        df['bb_middle'] = bb_indicator.bollinger_mavg()
-        df['bb_lower'] = bb_indicator.bollinger_lband()
-        df['bb_width'] = (df['bb_upper'] - df['bb_lower']) / df['bb_middle']
-        df['bb_position'] = (df['close'] - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'])
-        
-        # Stochastic Oscillator
-        df['stoch_k'] = ta.momentum.stoch(df['high'], df['low'], df['close'])
-        df['stoch_d'] = ta.momentum.stoch_signal(df['high'], df['low'], df['close'])
-        
-        # Williams %R
-        df['williams_r'] = ta.momentum.williams_r(df['high'], df['low'], df['close'])
-        
-        # Average True Range (ATR)
-        df['atr'] = ta.volatility.average_true_range(df['high'], df['low'], df['close'])
-        
-        # Volume indicators
-        df['volume_sma'] = ta.volume.volume_sma(df['close'], df['volume'], window=20)
-        df['volume_weighted_price'] = ta.volume.volume_weighted_average_price(
-            df['high'], df['low'], df['close'], df['volume'], window=14
-        )
-        
-        # Commodity Channel Index
-        df['cci'] = ta.trend.cci(df['high'], df['low'], df['close'], window=20)
-        
-        # Money Flow Index
-        df['mfi'] = ta.volume.money_flow_index(
-            df['high'], df['low'], df['close'], df['volume'], window=14
-        )
-        
-        # Rate of Change
-        df['roc'] = ta.momentum.roc(df['close'], window=12)
-        
-        # Volatility features
-        df['volatility_5'] = df['price_change'].rolling(5).std()
-        df['volatility_10'] = df['price_change'].rolling(10).std()
-        df['volatility_20'] = df['price_change'].rolling(20).std()
-        
-        # Price position features
-        df['price_position_5'] = (df['close'] - df['close'].rolling(5).min()) / (
-            df['close'].rolling(5).max() - df['close'].rolling(5).min()
-        )
-        df['price_position_20'] = (df['close'] - df['close'].rolling(20).min()) / (
-            df['close'].rolling(20).max() - df['close'].rolling(20).min()
-        )
-        
-        # Momentum features
-        df['momentum_5'] = df['close'] / df['close'].shift(5) - 1
-        df['momentum_10'] = df['close'] / df['close'].shift(10) - 1
-        df['momentum_20'] = df['close'] / df['close'].shift(20) - 1
-        
+
+        df = _compute_basic_price_features(df)
+        df = _compute_moving_averages(df)
+        df = _compute_macd(df)
+        df = _compute_rsi(df)
+        df = _compute_bollinger_bands(df)
+        df = _compute_stochastic_oscillator(df)
+        df = _compute_williams_r(df)
+        df = _compute_atr(df)
+        df = _compute_volume_indicators(df)
+        df = _compute_cci(df)
+        df = _compute_mfi(df)
+        df = _compute_roc(df)
+        df = _compute_volatility_features(df)
+        df = _compute_price_position_features(df)
+        df = _compute_momentum_features(df)
+
         logger.info(f"Computed technical indicators, shape: {df.shape}")
         return df
-        
+
     except Exception as e:
         logger.error(f"Error computing technical indicators: {e}")
         return df
+
+
+def _compute_basic_price_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes basic price features."""
+    df['price_change'] = df['close'].pct_change()
+    df['volume_change'] = df['volume'].pct_change()
+    df['high_low_pct'] = (df['high'] - df['low']) / df['close']
+    df['open_close_pct'] = (df['close'] - df['open']) / df['open']
+    return df
+
+
+def _compute_moving_averages(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes moving averages (SMA, EMA)."""
+    df['sma_5'] = ta.trend.sma_indicator(df['close'], window=5)
+    df['sma_10'] = ta.trend.sma_indicator(df['close'], window=10)
+    df['sma_20'] = ta.trend.sma_indicator(df['close'], window=20)
+    df['sma_50'] = ta.trend.sma_indicator(df['close'], window=50)
+    df['ema_12'] = ta.trend.ema_indicator(df['close'], window=12)
+    df['ema_26'] = ta.trend.ema_indicator(df['close'], window=26)
+    return df
+
+
+def _compute_macd(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes MACD indicators."""
+    df['macd'] = ta.trend.macd_diff(df['close'])
+    df['macd_signal'] = ta.trend.macd_signal(df['close'])
+    df['macd_histogram'] = ta.trend.macd(df['close'])
+    return df
+
+
+def _compute_rsi(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes RSI."""
+    df['rsi'] = ta.momentum.rsi(df['close'], window=14)
+    return df
+
+
+def _compute_bollinger_bands(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes Bollinger Bands."""
+    bb_indicator = ta.volatility.BollingerBands(df['close'], window=20, window_dev=2)
+    df['bb_upper'] = bb_indicator.bollinger_hband()
+    df['bb_middle'] = bb_indicator.bollinger_mavg()
+    df['bb_lower'] = bb_indicator.bollinger_lband()
+    df['bb_width'] = (df['bb_upper'] - df['bb_lower']) / df['bb_middle']
+    df['bb_position'] = (df['close'] - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'])
+    return df
+
+
+def _compute_stochastic_oscillator(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes Stochastic Oscillator."""
+    df['stoch_k'] = ta.momentum.stoch(df['high'], df['low'], df['close'])
+    df['stoch_d'] = ta.momentum.stoch_signal(df['high'], df['low'], df['close'])
+    return df
+
+
+def _compute_williams_r(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes Williams %R."""
+    df['williams_r'] = ta.momentum.williams_r(df['high'], df['low'], df['close'])
+    return df
+
+
+def _compute_atr(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes Average True Range (ATR)."""
+    df['atr'] = ta.volatility.average_true_range(df['high'], df['low'], df['close'])
+    return df
+
+
+def _compute_volume_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes volume indicators."""
+    df['volume_sma'] = ta.volume.volume_sma(df['close'], df['volume'], window=20) # Original had df['close'] as first arg, but ta.volume.volume_sma expects series_close, series_volume. Corrected.
+    df['volume_weighted_price'] = ta.volume.volume_weighted_average_price(
+        df['high'], df['low'], df['close'], df['volume'], window=14
+    )
+    return df
+
+
+def _compute_cci(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes Commodity Channel Index (CCI)."""
+    df['cci'] = ta.trend.cci(df['high'], df['low'], df['close'], window=20)
+    return df
+
+
+def _compute_mfi(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes Money Flow Index (MFI)."""
+    df['mfi'] = ta.volume.money_flow_index(
+        df['high'], df['low'], df['close'], df['volume'], window=14
+    )
+    return df
+
+
+def _compute_roc(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes Rate of Change (ROC)."""
+    df['roc'] = ta.momentum.roc(df['close'], window=12)
+    return df
+
+
+def _compute_volatility_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes volatility features."""
+    df['volatility_5'] = df['price_change'].rolling(5).std()
+    df['volatility_10'] = df['price_change'].rolling(10).std()
+    df['volatility_20'] = df['price_change'].rolling(20).std()
+    return df
+
+
+def _compute_price_position_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes price position features."""
+    df['price_position_5'] = (df['close'] - df['close'].rolling(5).min()) / (
+        df['close'].rolling(5).max() - df['close'].rolling(5).min()
+    )
+    df['price_position_20'] = (df['close'] - df['close'].rolling(20).min()) / (
+        df['close'].rolling(20).max() - df['close'].rolling(20).min()
+    )
+    return df
+
+
+def _compute_momentum_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Computes momentum features."""
+    df['momentum_5'] = df['close'] / df['close'].shift(5) - 1
+    df['momentum_10'] = df['close'] / df['close'].shift(10) - 1
+    df['momentum_20'] = df['close'] / df['close'].shift(20) - 1
+    return df
+
 
 def analyze_sentiment_with_gemma3(text):
     """Analyze sentiment using Gemma 3 4B LLM via Ollama"""
