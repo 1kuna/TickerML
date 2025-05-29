@@ -95,7 +95,7 @@ class TestTechnicalIndicators(unittest.TestCase):
             return
 
         if compute_technical_indicators_original == compute_technical_indicators:
-             logger.warning("Original function is the same as refactored one. Test will be a self-consistency check.")
+            self.skipTest("Original function is identical to the refactored one. Skipping consistency test to avoid masking potential retrieval issues.")
 
         sample_df = self._create_sample_df(num_rows=100)
         
