@@ -23,8 +23,9 @@ logger = logging.getLogger(__name__)
 import yaml
 
 # Configuration
-PROJECT_ROOT = Path(__file__).parent # This is scripts/
-CONFIG_FILE_PATH = PROJECT_ROOT.parent / "config" / "config.yaml"
+# Adjust PROJECT_ROOT to be the actual root of the project (two levels up from tests/)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent 
+CONFIG_FILE_PATH = PROJECT_ROOT / "config" / "config.yaml"
 
 # --- Configuration Helper ---
 def load_test_config():
@@ -76,9 +77,9 @@ def load_test_config():
 config_values = load_test_config()
 
 # Define global variables from loaded config
-# Note: PROJECT_ROOT is scripts/, so paths from config (relative to project root) need parent applied.
-DB_PATH = PROJECT_ROOT.parent / config_values['db_path']
-DUMPS_PATH = PROJECT_ROOT.parent / config_values['dumps_path']
+# Paths from config are relative to project root, so use PROJECT_ROOT directly.
+DB_PATH = PROJECT_ROOT / config_values['db_path']
+DUMPS_PATH = PROJECT_ROOT / config_values['dumps_path']
 BINANCE_US_API_BASE = config_values['binance_api_base']
 SYMBOLS = config_values['symbols']
 
@@ -144,9 +145,11 @@ def test_database_setup():
     logger.info("🔍 Test 2: Testing database setup...")
     
     try:
-        # Add raspberry_pi to path
-        # PROJECT_ROOT is scripts/, harvest.py is in raspberry_pi/ relative to project root.
-        sys.path.append(str(PROJECT_ROOT.parent / "raspberry_pi"))
+        # Add raspberry_pi to sys.path if not already there
+        # PROJECT_ROOT is now the actual project root.
+        raspberry_pi_path = str(PROJECT_ROOT / "raspberry_pi")
+        if raspberry_pi_path not in sys.path:
+            sys.path.insert(0, raspberry_pi_path)
         from harvest import init_database, store_data
         
         # Initialize database (uses DB_PATH from loaded config)
@@ -189,8 +192,10 @@ def test_data_harvesting():
     logger.info("🔍 Test 3: Testing data harvesting...")
     
     try:
-        # PROJECT_ROOT is scripts/, harvest.py is in raspberry_pi/ relative to project root.
-        sys.path.append(str(PROJECT_ROOT.parent / "raspberry_pi"))
+        # PROJECT_ROOT is now the actual project root.
+        raspberry_pi_path = str(PROJECT_ROOT / "raspberry_pi")
+        if raspberry_pi_path not in sys.path:
+            sys.path.insert(0, raspberry_pi_path)
         from harvest import fetch_kline_data, store_data
         
         success_count = 0
@@ -227,8 +232,10 @@ def test_data_export():
     logger.info("🔍 Test 4: Testing data export...")
     
     try:
-        # PROJECT_ROOT is scripts/, export_etl.py is in raspberry_pi/ relative to project root.
-        sys.path.append(str(PROJECT_ROOT.parent / "raspberry_pi"))
+        # PROJECT_ROOT is now the actual project root.
+        raspberry_pi_path = str(PROJECT_ROOT / "raspberry_pi")
+        if raspberry_pi_path not in sys.path:
+            sys.path.insert(0, raspberry_pi_path)
         from export_etl import export_daily_data
         
         # Run export (uses DUMPS_PATH and DB_PATH from loaded config)
@@ -345,8 +352,10 @@ def run_continuous_test(duration_minutes=5):
     logger.info(f"🔍 Test 7: Running continuous collection for {duration_minutes} minutes...")
     
     try:
-        # PROJECT_ROOT is scripts/, harvest.py is in raspberry_pi/ relative to project root.
-        sys.path.append(str(PROJECT_ROOT.parent / "raspberry_pi"))
+        # PROJECT_ROOT is now the actual project root.
+        raspberry_pi_path = str(PROJECT_ROOT / "raspberry_pi")
+        if raspberry_pi_path not in sys.path:
+            sys.path.insert(0, raspberry_pi_path)
         from harvest import fetch_kline_data, store_data
         
         start_time = time.time()

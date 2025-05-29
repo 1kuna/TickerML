@@ -4,6 +4,13 @@ import numpy as np
 import subprocess
 import os
 import logging
+import sys
+from pathlib import Path # Added import for Path
+# Add the project root to sys.path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from pc.features import compute_technical_indicators
 
 # Configure logging for the test
@@ -19,10 +26,11 @@ try:
     # Ensure we are in the root of the git repository for the command to work correctly
     # Assuming the script is run from a context where 'pc' is a subdirectory
     git_root = Path(subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], text=True).strip())
-    features_path_in_repo = git_root / 'pc' / 'features.py'
+    # Construct path relative to git root
+    features_path_in_repo_str = 'pc/features.py' 
     
     original_function_code_bytes = subprocess.check_output(
-        ['git', 'show', f'HEAD~1:{features_path_in_repo}'],
+        ['git', 'show', f'HEAD~1:{features_path_in_repo_str}'],
         cwd=git_root
     )
     original_function_code = original_function_code_bytes.decode('utf-8')

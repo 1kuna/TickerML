@@ -21,8 +21,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.append(str(project_root))
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 import yaml
 
@@ -89,8 +90,7 @@ def test_database_creation():
     
     try:
         # Import harvest module
-        sys.path.append(str(project_root / "raspberry_pi"))
-        from harvest import init_database, store_data
+        from raspberry_pi.harvest import init_database, store_data
         
         # Initialize database
         init_database()
@@ -153,8 +153,7 @@ def test_feature_engineering():
         })
         
         # Test technical indicators
-        sys.path.append(str(project_root / "pc"))
-        from features import compute_technical_indicators
+        from pc.features import compute_technical_indicators
         
         result = compute_technical_indicators(sample_data)
         
@@ -175,8 +174,7 @@ def test_model_architecture():
     
     try:
         import torch
-        sys.path.append(str(project_root / "pc"))
-        from train import TimeSeriesTransformer
+        from pc.train import TimeSeriesTransformer
         
         # Create model
         model = TimeSeriesTransformer(feature_dim=10)
@@ -204,8 +202,7 @@ def test_dashboard_components():
     logger.info("Testing dashboard components...")
     
     try:
-        sys.path.append(str(project_root / "raspberry_pi"))
-        from dashboard import app
+        from raspberry_pi.dashboard import app
         
         # Test app creation
         with app.test_client() as client:

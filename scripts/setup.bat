@@ -125,6 +125,7 @@ if not exist "models\checkpoints" mkdir models\checkpoints
 if not exist "models\onnx" mkdir models\onnx
 if not exist "logs" mkdir logs
 if not exist "raspberry_pi\templates" mkdir raspberry_pi\templates
+if not exist "notebooks" mkdir notebooks
 
 echo [SUCCESS] Directory structure created
 
@@ -180,7 +181,7 @@ echo  },
 echo  "nbformat": 4,
 echo  "nbformat_minor": 4
 echo }
-) > analysis.ipynb
+) > notebooks\analysis.ipynb
 
 echo [INFO] Testing installations...
 

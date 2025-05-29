@@ -16,16 +16,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.append(str(project_root / "raspberry_pi"))
+# Add project root to sys.path to allow imports from pc, raspberry_pi etc.
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+# Now imports like `from raspberry_pi.news_harvest import ...` should work.
 
 def test_news_database_init():
     """Test 1: Initialize news database tables"""
     logger.info("🔍 Test 1: Testing news database initialization...")
     
     try:
-        from news_harvest import init_news_database, DB_PATH
+        from raspberry_pi.news_harvest import init_news_database, DB_PATH
         
         # Initialize database
         init_news_database()
@@ -66,7 +69,7 @@ def test_sentiment_analysis():
     logger.info("🔍 Test 2: Testing sentiment analysis...")
     
     try:
-        from news_harvest import analyze_sentiment_basic, analyze_sentiment_simple
+        from raspberry_pi.news_harvest import analyze_sentiment_basic, analyze_sentiment_simple
         
         test_texts = [
             "Bitcoin price surges to new all-time high",
@@ -106,7 +109,7 @@ def test_news_fetch_config():
     logger.info("🔍 Test 3: Testing news fetching configuration...")
     
     try:
-        from news_harvest import NEWS_API_KEY, SYMBOLS, fetch_news_for_symbol
+        from raspberry_pi.news_harvest import NEWS_API_KEY, SYMBOLS, fetch_news_for_symbol
         
         logger.info(f"NewsAPI Key configured: {'Yes' if NEWS_API_KEY and NEWS_API_KEY != 'your_newsapi_key_here' else 'No'}")
         logger.info(f"Symbols configured: {SYMBOLS}")
@@ -135,7 +138,7 @@ def test_news_storage():
     logger.info("🔍 Test 4: Testing news storage...")
     
     try:
-        from news_harvest import store_news_article, DB_PATH
+        from raspberry_pi.news_harvest import store_news_article, DB_PATH
         
         # Create test article
         test_article = {
@@ -181,7 +184,7 @@ def test_full_harvest_process():
     logger.info("🔍 Test 5: Testing full harvest process...")
     
     try:
-        from news_harvest import harvest_news_for_symbol, SYMBOLS
+        from raspberry_pi.news_harvest import harvest_news_for_symbol, SYMBOLS
         
         if not SYMBOLS:
             logger.warning("⚠️  No symbols configured for testing")
