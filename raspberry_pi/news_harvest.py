@@ -33,7 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Default Configuration
-DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_data.db"
+DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_news.db"
 DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT"]
 
 def load_config():
@@ -60,7 +60,7 @@ def load_config():
 
         if yaml_config:
             # Database path
-            config_values["db_path"] = yaml_config.get("database", {}).get("path", DEFAULT_DB_PATH)
+            config_values["db_path"] = yaml_config.get("database", {}).get("news_path", DEFAULT_DB_PATH)
             
             # Symbols
             config_values["symbols"] = yaml_config.get("data", {}).get("symbols", DEFAULT_SYMBOLS)
@@ -100,53 +100,53 @@ def init_news_database():
         cursor = conn.cursor()
         
         # Create news articles table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS news_articles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            article_hash TEXT UNIQUE NOT NULL,
-            symbol TEXT NOT NULL,
-            title TEXT NOT NULL,
-            description TEXT,
-            content TEXT,
-            source TEXT,
-            url TEXT,
-            published_at INTEGER NOT NULL,
-            fetched_at INTEGER NOT NULL,
-            sentiment_score REAL,
-            sentiment_processed_at INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    # Create news sentiment index table for quick lookups
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS news_sentiment_hourly (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            symbol TEXT NOT NULL,
-            hour_timestamp INTEGER NOT NULL,
-            avg_sentiment REAL NOT NULL,
-            article_count INTEGER NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(symbol, hour_timestamp)
-        )
-    """)
-    
-    # Create indexes for faster queries
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_news_symbol_published 
-        ON news_articles(symbol, published_at)
-    """)
-    
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_news_hash 
-        ON news_articles(article_hash)
-    """)
-    
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_sentiment_symbol_hour 
-        ON news_sentiment_hourly(symbol, hour_timestamp)
-    """)
-    
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS news_articles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                article_hash TEXT UNIQUE NOT NULL,
+                symbol TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                content TEXT,
+                source TEXT,
+                url TEXT,
+                published_at INTEGER NOT NULL,
+                fetched_at INTEGER NOT NULL,
+                sentiment_score REAL,
+                sentiment_processed_at INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Create news sentiment index table for quick lookups
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS news_sentiment_hourly (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT NOT NULL,
+                hour_timestamp INTEGER NOT NULL,
+                avg_sentiment REAL NOT NULL,
+                article_count INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(symbol, hour_timestamp)
+            )
+        """)
+        
+        # Create indexes for faster queries
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_news_symbol_published 
+            ON news_articles(symbol, published_at)
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_news_hash 
+            ON news_articles(article_hash)
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_sentiment_symbol_hour 
+            ON news_sentiment_hourly(symbol, hour_timestamp)
+        """)
+        
         conn.commit()
         logger.info(f"News database tables initialized at {DB_PATH}")
     except sqlite3.Error as e:
@@ -262,6 +262,7 @@ Return only the numerical score (e.g., 0.3, -0.7, 0.0):"""
 
 def store_news_article(symbol, article, sentiment_score=None):
     """Store a news article in the database"""
+    conn = None
     try:
         # Parse published date
         published_at = datetime.fromisoformat(
@@ -276,13 +277,11 @@ def store_news_article(symbol, article, sentiment_score=None):
             published_timestamp
         )
         
-        conn = None
-        try:
-            conn = sqlite3.connect(str(DB_PATH))
-            cursor = conn.cursor()
-            
-            # Insert article (will be ignored if hash already exists)
-            cursor.execute("""
+        conn = sqlite3.connect(str(DB_PATH))
+        cursor = conn.cursor()
+        
+        # Insert article (will be ignored if hash already exists)
+        cursor.execute("""
             INSERT OR IGNORE INTO news_articles 
             (article_hash, symbol, title, description, content, source, url, 
              published_at, fetched_at, sentiment_score, sentiment_processed_at)
@@ -301,20 +300,20 @@ def store_news_article(symbol, article, sentiment_score=None):
             int(time.time() * 1000) if sentiment_score is not None else None
         ))
         
-            rows_affected = cursor.rowcount
-            conn.commit()
-            
-            if rows_affected > 0:
-                logger.debug(f"Stored new article: {article.get('title', '')[:50]}...")
-            
-            return rows_affected > 0
-            
-        except Exception as e:
-            logger.error(f"Error storing article: {e}")
-            return False
-        finally:
-            if conn:
-                conn.close()
+        rows_affected = cursor.rowcount
+        conn.commit()
+        
+        if rows_affected > 0:
+            logger.debug(f"Stored new article: {article.get('title', '')[:50]}...")
+        
+        return rows_affected > 0
+        
+    except Exception as e:
+        logger.error(f"Error storing article: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
 
 def update_hourly_sentiment(symbol):
     """Update hourly sentiment aggregates for a symbol"""

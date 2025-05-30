@@ -90,7 +90,10 @@ data:
 
 database:
   type: "sqlite"
-  path: "data/db/crypto_data.db"
+  # OHLCV price and prediction data
+  ohlcv_path: "data/db/crypto_ohlcv.db"
+  # News articles and sentiment data  
+  news_path: "data/db/crypto_news.db"
 
 logging:
   level: "INFO"

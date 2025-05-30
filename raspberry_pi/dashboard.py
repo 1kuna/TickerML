@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Configuration Loading ---
-DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_data.db"
+DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_ohlcv.db"
 DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT"]
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 5000
@@ -45,7 +45,7 @@ def load_app_config():
             yaml_config = yaml.safe_load(f)
 
         if yaml_config:
-            cfg["db_path"] = yaml_config.get("database", {}).get("path", cfg["db_path"])
+            cfg["db_path"] = yaml_config.get("database", {}).get("ohlcv_path", cfg["db_path"])
             cfg["symbols"] = yaml_config.get("data", {}).get("symbols", cfg["symbols"])
             
             dashboard_config = yaml_config.get("dashboard", {})
@@ -58,7 +58,7 @@ def load_app_config():
                                      ("host", DEFAULT_HOST), ("port", DEFAULT_PORT), ("debug", DEFAULT_DEBUG)]:
                 is_default = False
                 if key == "db_path":
-                    is_default = cfg[key] == default_val and yaml_config.get("database", {}).get("path") is None
+                    is_default = cfg[key] == default_val and yaml_config.get("database", {}).get("ohlcv_path") is None
                 elif key == "symbols":
                     is_default = cfg[key] == default_val and yaml_config.get("data", {}).get("symbols") is None
                 elif key in ["host", "port", "debug"]:

@@ -380,7 +380,7 @@ def fetch_stored_sentiment(symbol_name, hours=24):
     """Fetch sentiment data from the database"""
     try:
         # Check if database exists and has news tables
-        db_path = Path(__file__).parent.parent / "data" / "db" / "crypto_data.db"
+        db_path = Path(__file__).parent.parent / "data" / "db" / "crypto_news.db"
         if not db_path.exists():
             return []
         

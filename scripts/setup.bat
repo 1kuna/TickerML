@@ -228,7 +228,8 @@ echo.
 echo Useful Commands:
 echo - Activate environment: venv\Scripts\activate.bat
 echo - View logs: type logs\crypto_pipeline.log
-echo - Check database: sqlite3 data\db\crypto_data.db
+echo - Check OHLCV database: sqlite3 data\db\crypto_ohlcv.db
+echo - Check news database: sqlite3 data\db\crypto_news.db
 echo - Start Jupyter: jupyter notebook
 echo - Test Raspberry Pi dashboard: python raspberry_pi\dashboard.py
 

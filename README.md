@@ -98,7 +98,7 @@ python raspberry_pi/harvest.py
 python raspberry_pi/export_etl.py
 
 # Check what was collected
-sqlite3 data/db/crypto_data.db "SELECT symbol, COUNT(*) FROM ohlcv GROUP BY symbol;"
+sqlite3 data/db/crypto_ohlcv.db "SELECT symbol, COUNT(*) FROM ohlcv GROUP BY symbol;"
 ```
 
 #### **Automated Collection Setup**
@@ -350,13 +350,16 @@ tail -f logs/news_harvest.log
 tail -f logs/infer.log
 
 # View database status
-sqlite3 data/db/crypto_data.db "SELECT COUNT(*) FROM ohlcv;"
+sqlite3 data/db/crypto_ohlcv.db "SELECT COUNT(*) FROM ohlcv;"
+
+# Check predictions
+sqlite3 data/db/crypto_ohlcv.db "SELECT symbol, COUNT(*) FROM predictions GROUP BY symbol;"
 
 # View news data status
-sqlite3 data/db/crypto_data.db "SELECT symbol, COUNT(*) FROM news_articles GROUP BY symbol;"
+sqlite3 data/db/crypto_news.db "SELECT symbol, COUNT(*) FROM news_articles GROUP BY symbol;"
 
 # Check sentiment data
-sqlite3 data/db/crypto_data.db "SELECT symbol, COUNT(*) FROM news_sentiment_hourly GROUP BY symbol;"
+sqlite3 data/db/crypto_news.db "SELECT symbol, COUNT(*) FROM news_sentiment_hourly GROUP BY symbol;"
 
 # Check model performance
 python -c "

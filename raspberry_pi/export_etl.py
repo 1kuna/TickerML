@@ -19,7 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Default Configuration
-DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_data.db"
+DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_ohlcv.db"
 DEFAULT_DUMPS_PATH = Path(__file__).parent.parent / "data" / "dumps"
 DEFAULT_SYMBOLS = ["BTCUSD", "ETHUSD"]
 
@@ -42,13 +42,13 @@ def load_config():
             yaml_config = yaml.safe_load(f)
 
         if yaml_config:
-            # Load database.path
-            db_path_str = yaml_config.get("database", {}).get("path")
+            # Load database.ohlcv_path
+            db_path_str = yaml_config.get("database", {}).get("ohlcv_path")
             if db_path_str:
                 config_values["db_path"] = db_path_str
-                logger.info(f"Loaded database.path from config: {db_path_str}")
+                logger.info(f"Loaded database.ohlcv_path from config: {db_path_str}")
             else:
-                logger.warning(f"database.path not found in config. Using default: {DEFAULT_DB_PATH}")
+                logger.warning(f"database.ohlcv_path not found in config. Using default: {DEFAULT_DB_PATH}")
                 config_values["db_path"] = str(DEFAULT_DB_PATH)
 
             # Load paths.data_dumps

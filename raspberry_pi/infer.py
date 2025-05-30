@@ -34,7 +34,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # --- Configuration Loading ---
-DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_data.db"
+DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_ohlcv.db"
 DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT"] # Used if config or metadata fails
 DEFAULT_MODELS_PATH = Path(__file__).parent.parent / "models"
 DEFAULT_ONNX_MODELS_PATH = "onnx"
@@ -69,7 +69,7 @@ def load_app_config():
             yaml_config = yaml.safe_load(f)
 
         if yaml_config:
-            cfg["db_path"] = yaml_config.get("database", {}).get("path", cfg["db_path"])
+            cfg["db_path"] = yaml_config.get("database", {}).get("ohlcv_path", cfg["db_path"])
             cfg["symbols"] = yaml_config.get("data", {}).get("symbols", cfg["symbols"])
             cfg["models_path"] = yaml_config.get("paths", {}).get("models", cfg["models_path"])
             cfg["onnx_models_path"] = yaml_config.get("paths", {}).get("onnx", cfg["onnx_models_path"]) # Note: 'onnx' is a sub-path within 'models'
@@ -79,7 +79,7 @@ def load_app_config():
             for key, default_val in [("db_path", str(DEFAULT_DB_PATH)), ("symbols", DEFAULT_SYMBOLS), 
                                      ("models_path", str(DEFAULT_MODELS_PATH)), ("onnx_models_path", DEFAULT_ONNX_MODELS_PATH),
                                      ("checkpoints_path", DEFAULT_CHECKPOINTS_PATH)]:
-                if cfg[key] == default_val and (yaml_config.get("database",{}).get("path") if key == "db_path" else \
+                if cfg[key] == default_val and (yaml_config.get("database",{}).get("ohlcv_path") if key == "db_path" else \
                                                 yaml_config.get("data",{}).get("symbols") if key == "symbols" else \
                                                 yaml_config.get("paths",{}).get(key.replace("_path",""), None)) is not None : # Check if it was explicitly set to default
                     logger.info(f"Loaded {key} from config: {cfg[key]}")

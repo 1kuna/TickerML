@@ -32,7 +32,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Default Configuration
-DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_data.db"
+DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_ohlcv.db"
 DEFAULT_BINANCE_US_API_BASE = "https://api.binance.us/api/v3"
 DEFAULT_SYMBOLS = ["BTCUSD", "ETHUSD"]
 
@@ -68,11 +68,11 @@ def load_config():
             yaml_config = yaml.safe_load(f)
 
         if yaml_config:
-            config_values["db_path"] = yaml_config.get("database", {}).get("path", DEFAULT_DB_PATH)
+            config_values["db_path"] = yaml_config.get("database", {}).get("ohlcv_path", DEFAULT_DB_PATH)
             if config_values["db_path"] is DEFAULT_DB_PATH:
-                 logger.warning("database.path not found in config. Using default.")
+                 logger.warning("database.ohlcv_path not found in config. Using default.")
             else:
-                logger.info(f"Loaded database.path from config: {config_values['db_path']}")
+                logger.info(f"Loaded database.ohlcv_path from config: {config_values['db_path']}")
 
             config_values["binance_api_base"] = yaml_config.get("data", {}).get("binance_api_base", DEFAULT_BINANCE_US_API_BASE)
             if config_values["binance_api_base"] == DEFAULT_BINANCE_US_API_BASE and not (yaml_config.get("data", {}).get("binance_api_base") == DEFAULT_BINANCE_US_API_BASE) :
@@ -464,8 +464,8 @@ def main():
                 logger.info(f"Fetching live data for {symbol_name}")
                 
                 binance_api_symbol = BINANCE_SYMBOLS[symbol_idx] if symbol_idx < len(BINANCE_SYMBOLS) else symbol_name
-        kline_data = fetch_kline_data(binance_api_symbol)
-        
+                kline_data = fetch_kline_data(binance_api_symbol)
+
                 if kline_data:
                     store_data(symbol_name, kline_data) # This function now handles its own conn
                     success_count += 1

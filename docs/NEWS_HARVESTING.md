@@ -120,13 +120,13 @@ python scripts/test_news_harvest.py
 ### Check News Data
 ```bash
 # View articles in database
-sqlite3 data/db/crypto_data.db "SELECT symbol, COUNT(*) FROM news_articles GROUP BY symbol;"
+sqlite3 data/db/crypto_news.db "SELECT symbol, COUNT(*) FROM news_articles GROUP BY symbol;"
 
 # View hourly sentiment data
-sqlite3 data/db/crypto_data.db "SELECT symbol, COUNT(*) FROM news_sentiment_hourly GROUP BY symbol;"
+sqlite3 data/db/crypto_news.db "SELECT symbol, COUNT(*) FROM news_sentiment_hourly GROUP BY symbol;"
 
 # View recent articles
-sqlite3 data/db/crypto_data.db "SELECT title, sentiment_score FROM news_articles ORDER BY published_at DESC LIMIT 5;"
+sqlite3 data/db/crypto_news.db "SELECT title, sentiment_score FROM news_articles ORDER BY published_at DESC LIMIT 5;"
 ```
 
 ### Monitor Logs
@@ -206,82 +206,17 @@ OLLAMA_MODEL=gemma3:4b
 ps aux | grep news_harvest
 
 # Check database size
-du -sh data/db/crypto_data.db
+du -sh data/db/crypto_news.db
 
-# Check recent activity
-sqlite3 data/db/crypto_data.db "SELECT MAX(fetched_at) FROM news_articles;"
+# Check latest fetch time
+sqlite3 data/db/crypto_news.db "SELECT MAX(fetched_at) FROM news_articles;"
 ```
 
 ### Cleanup Old Data
 ```bash
-# Remove articles older than 30 days
-sqlite3 data/db/crypto_data.db "DELETE FROM news_articles WHERE fetched_at < $(date -d '30 days ago' +%s000);"
+# Clean up old articles (older than 30 days)
+sqlite3 data/db/crypto_news.db "DELETE FROM news_articles WHERE fetched_at < $(date -d '30 days ago' +%s000);"
 
-# Remove old hourly sentiment data
-sqlite3 data/db/crypto_data.db "DELETE FROM news_sentiment_hourly WHERE hour_timestamp < $(date -d '30 days ago' +%s000);"
+# Clean up old sentiment data
+sqlite3 data/db/crypto_news.db "DELETE FROM news_sentiment_hourly WHERE hour_timestamp < $(date -d '30 days ago' +%s000);"
 ```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **No articles being fetched**
-   - Check NewsAPI key configuration
-   - Verify internet connectivity
-   - Check API rate limits
-
-2. **Sentiment analysis errors**
-   - Ensure Ollama is running: `ollama serve`
-   - Check if Gemma 3 is available: `ollama list`
-   - Falls back to keyword analysis automatically
-
-3. **Database errors**
-   - Ensure database directory exists: `mkdir -p data/db`
-   - Check file permissions
-   - Verify SQLite installation
-
-4. **Cron job not running**
-   - Check cron service: `sudo systemctl status cron`
-   - Verify absolute paths in crontab
-   - Check log files for errors
-
-### Performance Optimization
-
-1. **For resource-constrained Raspberry Pi:**
-   ```bash
-   # Use smaller Gemma model
-   ollama pull gemma3:1b
-   
-   # Update config to use 1B model
-   # config/config.yaml
-   features:
-     sentiment:
-       model: "gemma3:1b"
-   ```
-
-2. **Reduce update frequency:**
-   ```yaml
-   features:
-     sentiment:
-       update_interval_minutes: 30  # Instead of 15
-   ```
-
-3. **Limit article history:**
-   ```python
-   # In news_harvest.py, reduce hours_back parameter
-   articles = fetch_news_for_symbol(symbol, hours_back=1)  # Instead of 2
-   ```
-
-## API Costs
-
-- **NewsAPI**: Free tier provides 1,000 requests/month
-- **Ollama + Gemma 3**: Free, runs locally
-- **Current usage**: ~96 requests/day (2 symbols × 4 requests/hour × 24 hours)
-
-## Future Enhancements
-
-- Support for additional news sources (Reddit, Twitter)
-- More sophisticated sentiment models
-- Real-time news streaming
-- News-based alert system
-- Sentiment trend analysis 

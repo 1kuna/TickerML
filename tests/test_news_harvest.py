@@ -197,7 +197,7 @@ def test_full_harvest_process():
         harvest_news_for_symbol(symbol)
         
         # Check if any data was processed
-        conn = sqlite3.connect(str(project_root / "data" / "db" / "crypto_data.db"))
+        conn = sqlite3.connect(str(project_root / "data" / "db" / "crypto_news.db"))
         cursor = conn.cursor()
         
         cursor.execute("""

@@ -33,7 +33,7 @@ def load_test_config():
     # Defaults based on original hardcoded values
     defaults = {
         "binance_api_base": "https://api.binance.us/api/v3",
-        "db_path": "data/db/crypto_data.db", # Relative to project root
+        "db_path": "data/db/crypto_ohlcv.db", # Relative to project root
         "dumps_path": "data/dumps",          # Relative to project root
         "symbols": ["BTCUSD", "ETHUSD"]
     }

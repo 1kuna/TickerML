@@ -17,7 +17,7 @@ def main():
     project_root = Path(__file__).resolve().parent.parent
     
     # Check database
-    db_path = project_root / "data" / "db" / "crypto_data.db"
+    db_path = project_root / "data" / "db" / "crypto_ohlcv.db"
     if db_path.exists():
         print("✅ Database: Created and accessible")
         

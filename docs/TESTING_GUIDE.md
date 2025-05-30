@@ -46,7 +46,7 @@ Tests SQLite database creation and basic operations.
 **Manual test:**
 ```bash
 python raspberry_pi/harvest.py  # This will create the database
-sqlite3 data/db/crypto_data.db ".tables"  # Check if tables exist
+sqlite3 data/db/crypto_ohlcv.db ".tables"  # Check if tables exist
 ```
 
 **What it checks:**
@@ -64,7 +64,7 @@ Tests actual data collection from Binance API.
 python raspberry_pi/harvest.py
 
 # Check what was collected
-sqlite3 data/db/crypto_data.db "SELECT COUNT(*) FROM ohlcv;"
+sqlite3 data/db/crypto_ohlcv.db "SELECT COUNT(*) FROM ohlcv;"
 ```
 
 **What it checks:**
@@ -97,7 +97,7 @@ Tests query performance and data integrity.
 
 **Manual test:**
 ```bash
-sqlite3 data/db/crypto_data.db << EOF
+sqlite3 data/db/crypto_ohlcv.db << EOF
 SELECT symbol, COUNT(*) as records, 
        MIN(datetime(timestamp/1000, 'unixepoch')) as earliest,
        MAX(datetime(timestamp/1000, 'unixepoch')) as latest
@@ -163,7 +163,7 @@ python -c "
 import sqlite3
 from pathlib import Path
 Path('data/db').mkdir(parents=True, exist_ok=True)
-conn = sqlite3.connect('data/db/crypto_data.db')
+conn = sqlite3.connect('data/db/crypto_ohlcv.db')
 conn.close()
 print('Database created')
 "
@@ -184,7 +184,7 @@ pip install -r raspberry_pi/requirements.txt
 python raspberry_pi/harvest.py
 
 # Verify data was stored
-sqlite3 data/db/crypto_data.db "SELECT * FROM ohlcv ORDER BY timestamp DESC LIMIT 5;"
+sqlite3 data/db/crypto_ohlcv.db "SELECT * FROM ohlcv ORDER BY timestamp DESC LIMIT 5;"
 
 # Check logs
 tail -f logs/harvest.log  # If logging to file
@@ -227,7 +227,7 @@ crontab -e
 tail -f logs/harvest.log
 
 # Check data growth
-watch "sqlite3 data/db/crypto_data.db 'SELECT symbol, COUNT(*) FROM ohlcv GROUP BY symbol;'"
+watch "sqlite3 data/db/crypto_ohlcv.db 'SELECT symbol, COUNT(*) FROM ohlcv GROUP BY symbol;'"
 ```
 
 ## Advanced Testing
@@ -249,7 +249,7 @@ import sqlite3
 import pandas as pd
 from datetime import datetime, timedelta
 
-conn = sqlite3.connect('data/db/crypto_data.db')
+conn = sqlite3.connect('data/db/crypto_ohlcv.db')
 df = pd.read_sql('SELECT * FROM ohlcv ORDER BY timestamp', conn)
 df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
 

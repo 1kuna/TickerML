@@ -266,7 +266,8 @@ echo ""
 echo "🔧 Useful Commands:"
 echo "- Activate environment: source venv/bin/activate"
 echo "- View logs: tail -f logs/crypto_pipeline.log"
-echo "- Check database: sqlite3 data/db/crypto_data.db"
+echo "- Check OHLCV database: sqlite3 data/db/crypto_ohlcv.db"
+echo "- Check news database: sqlite3 data/db/crypto_news.db"
 
 if [ "$PLATFORM" == "pc" ]; then
     echo "- Start Jupyter: jupyter notebook"
