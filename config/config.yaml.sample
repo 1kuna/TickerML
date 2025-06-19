@@ -1,24 +1,99 @@
-# Crypto Time-Series Transformer Pipeline Configuration
+# TickerML Paper Trading Bot Configuration
 
-# Data Collection
+# Multi-Exchange Data Collection
+exchanges:
+  binance:
+    api_base: "https://api.binance.us/api/v3"
+    websocket_base: "wss://stream.binance.us:9443/ws"
+    symbols: ["BTCUSDT", "ETHUSDT"]
+    order_book_depth: 50
+    trade_stream: true
+    enabled: true
+  
+  coinbase:
+    api_base: "https://api.exchange.coinbase.com"
+    websocket_base: "wss://ws-feed.exchange.coinbase.com"
+    symbols: ["BTC-USD", "ETH-USD"]
+    order_book_depth: 50
+    trade_stream: true
+    enabled: false  # Enable when implementing
+    
+  kraken:
+    api_base: "https://api.kraken.com"
+    websocket_base: "wss://ws.kraken.com"
+    symbols: ["XBT/USD", "ETH/USD"]
+    order_book_depth: 25
+    trade_stream: true
+    enabled: false  # Enable when implementing
+
 data:
-  symbols: ["BTCUSDT", "ETHUSDT"]
-  binance_api_base: "https://api.binance.com/api/v3"
-  interval: "1m"
-  sequence_length: 60  # minutes of history for prediction
+  sequence_length: 60  # minutes of history for features
+  order_book_snapshot_interval: 10  # seconds
+  trade_aggregation_window: 1  # seconds
+  max_reconnect_attempts: 5
+  connection_timeout: 30  # seconds
 
 # Database
 database:
-  type: "sqlite"
-  # OHLCV price and prediction data
-  ohlcv_path: "data/db/crypto_ohlcv.db"
+  type: "timescaledb"  # or "sqlite" for development
+  # Trading data (OHLCV, order books, trades, portfolio)
+  trading_data_path: "data/db/crypto_ohlcv.db"
   # News articles and sentiment data  
   news_path: "data/db/crypto_news.db"
+  # Connection settings for TimescaleDB
+  timescaledb:
+    host: "localhost"
+    port: 5432
+    database: "tickerml"
+    username: "tickerml_user"
+    password: "your_password_here"
   backup_enabled: true
-  backup_interval_hours: 24
+  backup_interval_hours: 6
+  data_retention_days: 90
+
+# Paper Trading Configuration
+trading:
+  initial_balance: 10000  # USD
+  max_position_size: 0.25  # 25% of portfolio per position
+  max_concurrent_positions: 5
+  min_trade_amount: 10  # USD
+  
+  slippage_model:
+    type: "dynamic"  # "fixed" or "dynamic"
+    base_slippage_bps: 5  # basis points
+    liquidity_impact_factor: 0.1
+    
+  transaction_costs:
+    maker_fee_bps: 10  # 0.1%
+    taker_fee_bps: 15  # 0.15%
+    
+  order_types:
+    market_orders: true
+    limit_orders: true
+    stop_loss: true
+    take_profit: true
+
+# Risk Management
+risk:
+  max_drawdown: 0.20  # 20%
+  max_daily_loss: 0.05  # 5%
+  stop_loss_default: 0.02  # 2%
+  take_profit_default: 0.04  # 4%
+  position_correlation_limit: 0.7
+  var_confidence: 0.95  # Value at Risk confidence level
+  max_portfolio_beta: 1.5
 
 # Feature Engineering
 features:
+  # Market Microstructure Features
+  microstructure:
+    order_imbalance: true
+    bid_ask_spread: true
+    volume_weighted_price: true
+    large_order_detection: true
+    order_flow_toxicity: true
+    
+  # Technical Indicators
   technical_indicators:
     - "sma"
     - "ema"
@@ -30,32 +105,104 @@ features:
     - "cci"
     - "mfi"
     - "williams_r"
+    - "roc"  # Rate of Change
+    
+  # Portfolio-Aware Features
+  portfolio_features:
+    current_pnl: true
+    time_in_position: true
+    portfolio_heat: true
+    position_correlation: true
+    exposure_by_asset: true
+  
+  # Multi-Exchange Features
+  cross_exchange:
+    arbitrage_signals: true
+    relative_spreads: true
+    volume_comparison: true
   
   sentiment:
     enabled: true
-    model: "gemma3:4b"  # Ollama model for sentiment analysis
+    model: "qwen3:4b"  # Ollama model for sentiment analysis
     update_interval_minutes: 15
     sources: ["newsapi"]
     ollama_host: "http://localhost:11434"  # Default Ollama host
+    market_regime_detection: true
   
   normalization:
     method: "standard_scaler"
     save_scaler: true
+    outlier_detection: true
 
-# Model Training
+# Reinforcement Learning
+reinforcement_learning:
+  algorithm: "ppo"  # "ppo", "a2c", or "sac"
+  
+  # State Space Configuration
+  state_space:
+    order_book_levels: 10
+    technical_indicators: true
+    portfolio_state: true
+    sentiment_features: true
+    lookback_minutes: 60
+    
+  # Action Space Configuration  
+  action_space:
+    type: "continuous"  # "discrete" or "continuous"
+    actions: ["buy", "sell", "hold"]
+    position_sizing_range: [0.0, 0.25]  # 0-25% of portfolio
+    
+  # Reward Function
+  reward_function:
+    profit_weight: 1.0
+    risk_penalty: 0.5
+    drawdown_penalty: 2.0
+    transaction_cost_penalty: 0.1
+    
+  # Training Parameters
+  training:
+    episodes: 1000
+    steps_per_episode: 1440  # minutes in a day
+    learning_rate: 0.0003
+    batch_size: 64
+    replay_buffer_size: 100000
+    update_frequency: 4
+    
+  # Experience Replay
+  experience_replay:
+    enabled: true
+    buffer_size: 50000
+    min_experiences: 1000
+    sample_batch_size: 32
+
+# Multi-Task Transformer Model
 model:
-  architecture: "transformer"
+  architecture: "trading_transformer"
   d_model: 128
   n_heads: 4
   n_layers: 6
   dropout: 0.1
   
+  # Multi-task heads
+  task_heads:
+    price_prediction: true
+    trading_action: true
+    position_sizing: true
+    risk_assessment: true
+    
   training:
     batch_size: 32
     epochs: 100
     learning_rate: 0.001
     weight_decay: 1e-4
     early_stopping_patience: 15
+    mixed_precision: true
+    
+  # Ensemble Configuration
+  ensemble:
+    enabled: true
+    num_models: 3
+    voting_strategy: "soft"  # "hard" or "soft"
     
   targets:
     prediction_horizons: [5, 10, 30]  # minutes
@@ -69,19 +216,49 @@ onnx:
     enabled: true
     weight_type: "QInt8"
   
-# Inference
+# Real-time Trading Inference
 inference:
-  interval_minutes: 5
-  confidence_threshold: 0.7
+  interval_seconds: 1  # Decision frequency
+  confidence_threshold: 0.65
   batch_size: 1
+  max_inference_time_ms: 50  # Maximum allowed inference time
+  
+  # Model selection
+  model_mode: "speed"  # "speed" or "accuracy"
+  use_ensemble: true
+  
+  # Circuit breakers
+  circuit_breakers:
+    max_consecutive_losses: 5
+    confidence_degradation_threshold: 0.3
+    unusual_market_detection: true
 
-# Dashboard
+# Trading Dashboard
 dashboard:
   host: "0.0.0.0"
   port: 5000
   debug: false
-  auto_refresh_seconds: 30
-  chart_history_hours: 24
+  auto_refresh_seconds: 5  # Faster refresh for trading
+  
+  # Chart configurations
+  charts:
+    price_history_hours: 24
+    pnl_history_hours: 24
+    order_book_depth_levels: 20
+    trade_history_count: 100
+    
+  # Performance metrics
+  metrics:
+    sharpe_ratio_window_days: 30
+    drawdown_calculation: "rolling"
+    benchmark_symbol: "BTCUSDT"  # For comparison
+    
+  # Visualizations
+  visualizations:
+    attention_weights: true
+    feature_importance: true
+    portfolio_correlation: true
+    risk_heatmap: true
 
 # Logging
 logging:
@@ -92,10 +269,32 @@ logging:
   max_file_size_mb: 10
   backup_count: 5
 
-# Alerts (Optional)
+# Alerts and Monitoring
 alerts:
-  enabled: false
+  enabled: true
+  
+  # Trading alerts
+  trading:
+    large_position_threshold: 0.15  # 15% of portfolio
+    high_confidence_trades: 0.9
+    significant_pnl_change: 0.05  # 5%
+    
+  # Risk alerts
+  risk:
+    drawdown_warning: 0.10  # 10%
+    drawdown_critical: 0.15  # 15%
+    correlation_spike: 0.8
+    unusual_volatility: 3.0  # standard deviations
+    
+  # System alerts
+  system:
+    model_confidence_drop: 0.4
+    data_feed_interruption: true
+    execution_latency_ms: 100
+    
+  # Notification channels
   email:
+    enabled: false
     smtp_server: "smtp.gmail.com"
     smtp_port: 587
     username: "your_email@gmail.com"
@@ -105,11 +304,32 @@ alerts:
   webhook:
     enabled: false
     url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-  
-  conditions:
-    high_confidence_threshold: 0.9
-    large_price_change_percent: 5.0
+    
+  discord:
+    enabled: false
+    webhook_url: "https://discord.com/api/webhooks/YOUR/WEBHOOK/URL"
 
+# Backtesting
+backtesting:
+  enabled: true
+  start_date: "2024-01-01"
+  end_date: "2024-12-31"
+  initial_balance: 10000
+  commission: 0.001  # 0.1%
+  slippage: 0.0005  # 0.05%
+  
+  # Walk-forward analysis
+  walk_forward:
+    enabled: true
+    train_period_days: 90
+    test_period_days: 30
+    step_days: 7
+    
+  # Performance metrics
+  metrics:
+    benchmark: "buy_and_hold"
+    risk_free_rate: 0.02  # 2% annual
+    
 # Paths
 paths:
   data_dumps: "data/dumps"
@@ -117,17 +337,53 @@ paths:
   models: "models"
   checkpoints: "models/checkpoints"
   onnx: "models/onnx"
+  rl_models: "models/rl"
   logs: "logs"
+  backtest_results: "results/backtests"
 
-# Cron Schedules
-cron:
-  harvest: "* * * * *"  # Every minute
-  etl_export: "0 0 * * *"  # Daily at midnight
-  inference: "*/5 * * * *"  # Every 5 minutes
+# Real-time Scheduling (WebSocket-based, not cron)
+scheduling:
+  data_collection:
+    mode: "websocket"  # "websocket" or "polling"
+    order_book_snapshots: "*/10 * * * * *"  # Every 10 seconds
+    trade_stream: "continuous"
+    
+  trading:
+    decision_frequency: "*/1 * * * * *"  # Every second
+    portfolio_rebalance: "0 */4 * * *"  # Every 4 hours
+    
+  model_updates:
+    retrain_frequency: "0 2 * * *"  # Daily at 2 AM
+    feature_update: "*/15 * * * *"  # Every 15 minutes
+    
+  maintenance:
+    database_cleanup: "0 3 * * 0"  # Weekly on Sunday
+    model_validation: "0 1 * * *"  # Daily at 1 AM
+    performance_report: "0 8 * * 1"  # Weekly on Monday
   
-# Performance
+# Performance and Optimization
 performance:
+  # Resource limits
   max_workers: 4
   memory_limit_gb: 8
   gpu_enabled: true
-  mixed_precision: true 
+  mixed_precision: true
+  
+  # Real-time processing
+  max_order_book_processing_time_ms: 10
+  max_feature_calculation_time_ms: 20
+  max_inference_time_ms: 50
+  
+  # Model optimization
+  model_quantization: true
+  onnx_optimization_level: "all"
+  batch_inference: false  # For real-time trading
+  
+  # Caching
+  feature_cache_size: 1000
+  model_cache_enabled: true
+  redis_cache:
+    enabled: false
+    host: "localhost"
+    port: 6379
+    db: 0 

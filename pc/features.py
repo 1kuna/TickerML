@@ -45,7 +45,7 @@ def load_config():
 config = load_config()
 NEWS_API_KEY = os.getenv("NEWS_API_KEY", config.get("features", {}).get("sentiment", {}).get("news_api_key", "your_newsapi_key_here"))
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", config.get("features", {}).get("sentiment", {}).get("ollama_host", "http://localhost:11434"))
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", config.get("features", {}).get("sentiment", {}).get("model", "gemma3:4b"))
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", config.get("features", {}).get("sentiment", {}).get("model", "qwen3:4b"))
 SYMBOLS = config.get("data", {}).get("symbols", ["BTCUSDT", "ETHUSDT"])
 
 def load_price_data(symbol, days=30):
@@ -242,8 +242,8 @@ def _compute_momentum_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def analyze_sentiment_with_gemma3(text):
-    """Analyze sentiment using Gemma 3 4B LLM via Ollama"""
+def analyze_sentiment_with_qwen3(text):
+    """Analyze sentiment using Qwen 3 LLM via Ollama"""
     try:
         # Prepare the prompt for sentiment analysis
         prompt = f"""Analyze the sentiment of the following financial news text and return only a numerical score between -1 and 1, where:
@@ -255,7 +255,7 @@ Text: "{text}"
 
 Return only the numerical score (e.g., 0.3, -0.7, 0.0):"""
 
-        # Call Gemma 3 via Ollama
+        # Call Qwen 3 via Ollama
         client = ollama.Client(host=OLLAMA_HOST)
         response = client.chat(
             model=OLLAMA_MODEL,
@@ -282,11 +282,11 @@ Return only the numerical score (e.g., 0.3, -0.7, 0.0):"""
             sentiment_score = max(-1.0, min(1.0, sentiment_score))
             return sentiment_score
         else:
-            logger.warning(f"Could not parse sentiment score from Gemma 3 response: {sentiment_text}")
+            logger.warning(f"Could not parse sentiment score from Qwen 3 response: {sentiment_text}")
             return 0.0
             
     except Exception as e:
-        logger.error(f"Error analyzing sentiment with Gemma 3: {e}")
+        logger.error(f"Error analyzing sentiment with Qwen 3: {e}")
         # Fallback to neutral sentiment
         return 0.0
 
@@ -351,8 +351,8 @@ def fetch_news_sentiment(symbol_name, hours=24, use_stored_data=True):
                 if not text.strip():
                     continue
                 
-                # Compute sentiment using Gemma 3
-                sentiment = analyze_sentiment_with_gemma3(text)
+                # Compute sentiment using Qwen 3
+                sentiment = analyze_sentiment_with_qwen3(text)
                 
                 # Parse published date
                 published_at = datetime.fromisoformat(

@@ -25,13 +25,13 @@ def test_sentiment_no_fallback():
     try:
         sentiment_score = analyze_sentiment_simple(test_text)
         print(f"✅ Sentiment analysis succeeded: {sentiment_score}")
-        print("This means Ollama with Gemma 3 is available and working")
+        print("This means Ollama with Qwen 3 is available and working")
     except ImportError as e:
         print(f"❌ ImportError: {e}")
         print("This is expected if Ollama library is not installed")
     except RuntimeError as e:
         print(f"❌ RuntimeError: {e}")
-        print("This is expected if Ollama service is not running or Gemma 3 model is not available")
+        print("This is expected if Ollama service is not running or Qwen 3 model is not available")
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
         print("This indicates an unexpected problem")

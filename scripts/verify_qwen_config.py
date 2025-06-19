@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Verify Gemma 3 4B model configuration
+Verify Qwen 3 model configuration
 """
 
 import yaml
@@ -8,11 +8,11 @@ import os
 from pathlib import Path
 
 def verify_config():
-    """Verify that all configuration files use Gemma 3 4B model"""
+    """Verify that all configuration files use Qwen 3 model"""
     
     project_root = Path(__file__).parent.parent
     
-    print("Verifying Gemma 3 4B Model Configuration")
+    print("Verifying Qwen 3 Model Configuration")
     print("=" * 50)
     
     # Check config.yaml
@@ -24,8 +24,8 @@ def verify_config():
         model = config.get("features", {}).get("sentiment", {}).get("model", "")
         print(f"✓ config.yaml model: {model}")
         
-        if model == "gemma3:4b":
-            print("✓ config.yaml correctly configured for Gemma 3 4B")
+        if model == "qwen3:4b":
+            print("✓ config.yaml correctly configured for Qwen 3")
         else:
             print(f"✗ config.yaml has incorrect model: {model}")
     else:
@@ -40,8 +40,8 @@ def verify_config():
         model_sample = config_sample.get("features", {}).get("sentiment", {}).get("model", "")
         print(f"✓ config.yaml.sample model: {model_sample}")
         
-        if model_sample == "gemma3:4b":
-            print("✓ config.yaml.sample correctly configured for Gemma 3 4B")
+        if model_sample == "qwen3:4b":
+            print("✓ config.yaml.sample correctly configured for Qwen 3")
         else:
             print(f"✗ config.yaml.sample has incorrect model: {model_sample}")
     else:
@@ -53,8 +53,8 @@ def verify_config():
         with open(env_sample_path, 'r') as f:
             env_content = f.read()
         
-        if "OLLAMA_MODEL=gemma3:4b" in env_content:
-            print("✓ env.sample correctly configured for Gemma 3 4B")
+        if "OLLAMA_MODEL=qwen3:4b" in env_content:
+            print("✓ env.sample correctly configured for Qwen 3")
         else:
             print("✗ env.sample has incorrect model configuration")
     else:
@@ -66,8 +66,8 @@ def verify_config():
         with open(readme_path, 'r') as f:
             readme_content = f.read()
         
-        if "ollama pull gemma3:4b" in readme_content:
-            print("✓ README.md correctly references Gemma 3 4B")
+        if "ollama pull qwen3:4b" in readme_content:
+            print("✓ README.md correctly references Qwen 3")
         else:
             print("✗ README.md has incorrect model references")
     else:
@@ -79,8 +79,8 @@ def verify_config():
         with open(setup_path, 'r') as f:
             setup_content = f.read()
         
-        if "ollama pull gemma3:4b" in setup_content:
-            print("✓ setup.sh correctly references Gemma 3 4B")
+        if "ollama pull qwen3:4b" in setup_content:
+            print("✓ setup.sh correctly references Qwen 3")
         else:
             print("✗ setup.sh has incorrect model references")
     else:
@@ -88,9 +88,9 @@ def verify_config():
     
     print("\n" + "=" * 50)
     print("Configuration verification completed!")
-    print("\nTo use Gemma 3 4B model:")
+    print("\nTo use Qwen 3 model:")
     print("1. Install Ollama: https://ollama.ai")
-    print("2. Pull the model: ollama pull gemma3:4b")
+    print("2. Pull the model: ollama pull qwen3:4b")
     print("3. Start Ollama: ollama serve")
     print("4. Run feature engineering: python pc/features.py")
 

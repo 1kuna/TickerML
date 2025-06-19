@@ -46,7 +46,7 @@ def load_config():
         "symbols": DEFAULT_SYMBOLS,
         "news_api_key": None,
         "ollama_host": "http://localhost:11434",
-        "ollama_model": "gemma3:4b",
+        "ollama_model": "qwen3:4b",
         "update_interval_minutes": 15,
     }
 
@@ -69,7 +69,7 @@ def load_config():
             sentiment_config = yaml_config.get("features", {}).get("sentiment", {})
             config_values["news_api_key"] = sentiment_config.get("news_api_key")
             config_values["ollama_host"] = sentiment_config.get("ollama_host", "http://localhost:11434")
-            config_values["ollama_model"] = sentiment_config.get("model", "gemma3:4b")
+            config_values["ollama_model"] = sentiment_config.get("model", "qwen3:4b")
             config_values["update_interval_minutes"] = sentiment_config.get("update_interval_minutes", 15)
 
     except Exception as e:
@@ -208,7 +208,7 @@ def fetch_news_for_symbol(symbol, hours_back=2):
         return []
 
 def analyze_sentiment_simple(text):
-    """Sentiment analysis using Gemma 3 4B LLM via Ollama - NO FALLBACK"""
+    """Sentiment analysis using Qwen 3 LLM via Ollama - NO FALLBACK"""
     try:
         # Import ollama - fail if not available
         import ollama
@@ -223,7 +223,7 @@ Text: "{text[:500]}"
 
 Return only the numerical score (e.g., 0.3, -0.7, 0.0):"""
 
-        # Call Gemma 3 via Ollama
+        # Call Qwen 3 via Ollama
         client = ollama.Client(host=OLLAMA_HOST)
         response = client.chat(
             model=OLLAMA_MODEL,
@@ -250,15 +250,15 @@ Return only the numerical score (e.g., 0.3, -0.7, 0.0):"""
             sentiment_score = max(-1.0, min(1.0, sentiment_score))
             return sentiment_score
         else:
-            logger.error(f"Could not parse sentiment score from Gemma 3 response: {sentiment_text}")
-            raise ValueError(f"Invalid sentiment response from Gemma 3: {sentiment_text}")
+            logger.error(f"Could not parse sentiment score from Qwen 3 response: {sentiment_text}")
+            raise ValueError(f"Invalid sentiment response from Qwen 3: {sentiment_text}")
             
     except ImportError as e:
         logger.error("Ollama library not available - cannot perform sentiment analysis")
         raise ImportError("Ollama library required for sentiment analysis") from e
     except Exception as e:
-        logger.error(f"Error with Gemma 3 sentiment analysis via Ollama: {e}")
-        raise RuntimeError(f"Gemma 3 sentiment analysis failed: {e}") from e
+        logger.error(f"Error with Qwen 3 sentiment analysis via Ollama: {e}")
+        raise RuntimeError(f"Qwen 3 sentiment analysis failed: {e}") from e
 
 def store_news_article(symbol, article, sentiment_score=None):
     """Store a news article in the database"""

@@ -1,6 +1,6 @@
-# TickerML Data Collection Testing Guide
+# TickerML Paper Trading Bot Testing Guide
 
-This guide will help you test the data collection pipeline step by step to ensure everything is working correctly.
+This guide will help you test the paper trading bot system step by step, including data collection, trading engine, and RL training components.
 
 ## Quick Start
 
@@ -17,9 +17,12 @@ mkdir -p data/db data/dumps data/features logs models/checkpoints models/onnx
 ```bash
 # Run comprehensive test suite
 python tests/test_data_collection.py
+python tests/test_paper_trader.py
+python tests/test_rl_training.py
+python tests/test_sentiment.py
 ```
 
-This will run 6 different tests and give you a complete overview of your pipeline health.
+This will run comprehensive tests covering data collection, paper trading engine, RL training, and sentiment analysis.
 
 ## Individual Test Components
 
@@ -139,6 +142,193 @@ python tests/test_data_collection.py
 ```
 
 This simulates the actual cron job behavior by collecting data every minute.
+
+## Paper Trading Bot Tests
+
+### **Test 7: Paper Trading Engine** 💰
+Tests the virtual trading engine with portfolio management.
+
+**Manual test:**
+```bash
+# Test paper trading initialization
+python raspberry_pi/paper_trader.py --test
+
+# Check portfolio state
+sqlite3 data/db/crypto_ohlcv.db "SELECT * FROM portfolio_state ORDER BY timestamp DESC LIMIT 1;"
+```
+
+**What it checks:**
+- ✅ Virtual portfolio initialization ($10,000 starting balance)
+- ✅ Order execution simulation with slippage
+- ✅ Position sizing and risk management
+- ✅ Stop-loss and take-profit mechanisms
+- ✅ Transaction cost calculation
+- ✅ Portfolio performance tracking
+
+### **Test 8: RL Training Pipeline** 🧠
+Tests the reinforcement learning training system.
+
+**Manual test:**
+```bash
+# Test RL environment setup
+python pc/rl_trainer.py --test --episodes 10
+
+# Check experience replay buffer
+python -c "
+import pickle
+with open('models/rl/experience_buffer.pkl', 'rb') as f:
+    buffer = pickle.load(f)
+print(f'Experience buffer size: {len(buffer)}')
+"
+```
+
+**What it checks:**
+- ✅ RL environment initialization
+- ✅ State space construction (order book + technical + portfolio features)
+- ✅ Action space validation (buy/sell/hold + position sizing)
+- ✅ Reward function calculation (risk-adjusted returns)
+- ✅ Experience replay buffer functionality
+- ✅ Model training convergence
+
+### **Test 9: Trading Decision Engine** ⚡
+Tests real-time inference and trading decisions.
+
+**Manual test:**
+```bash
+# Test trading inference
+python raspberry_pi/infer.py --test
+
+# Check decision logs
+tail -f logs/trading_decisions.log
+```
+
+**What it checks:**
+- ✅ Sub-second inference performance (<50ms)
+- ✅ Feature calculation from order book data
+- ✅ Multi-task model output (price + action + position + risk)
+- ✅ Confidence thresholding
+- ✅ Ensemble model voting
+- ✅ Decision logging and audit trail
+
+### **Test 10: Risk Management** 🛡️
+Tests portfolio risk controls and circuit breakers.
+
+**Manual test:**
+```bash
+# Test risk management system
+python raspberry_pi/risk_monitor.py --test
+
+# Simulate high correlation scenario
+python tests/test_risk_management.py --scenario high_correlation
+```
+
+**What it checks:**
+- ✅ Position correlation monitoring
+- ✅ Drawdown calculation and limits
+- ✅ Exposure limits by asset
+- ✅ Circuit breaker activation
+- ✅ Risk alerts and notifications
+- ✅ VaR (Value at Risk) calculation
+
+### **Test 11: Multi-Exchange Data** 🔄
+Tests real-time data from multiple exchanges.
+
+**Manual test:**
+```bash
+# Test multi-exchange WebSocket connections
+python raspberry_pi/harvest.py --multi-exchange --test
+
+# Check order book synchronization
+sqlite3 data/db/crypto_ohlcv.db "
+SELECT exchange, symbol, COUNT(*) as snapshots,
+       MAX(timestamp) as latest_timestamp
+FROM order_books 
+GROUP BY exchange, symbol;
+"
+```
+
+**What it checks:**
+- ✅ WebSocket connection stability across exchanges
+- ✅ Order book synchronization
+- ✅ Cross-exchange arbitrage detection
+- ✅ Data quality and completeness
+- ✅ Latency monitoring
+- ✅ Reconnection handling
+
+### **Test 12: Performance Metrics** 📈
+Tests trading performance calculation and reporting.
+
+**Manual test:**
+```bash
+# Generate performance report
+python raspberry_pi/performance_report.py
+
+# Check key metrics
+python -c "
+import sqlite3
+conn = sqlite3.connect('data/db/crypto_ohlcv.db')
+cursor = conn.execute('SELECT * FROM performance_metrics ORDER BY timestamp DESC LIMIT 1')
+metrics = cursor.fetchone()
+print(f'Sharpe Ratio: {metrics[1]:.2f}')
+print(f'Max Drawdown: {metrics[2]:.2f}%')
+print(f'Win Rate: {metrics[3]:.2f}%')
+conn.close()
+"
+```
+
+**What it checks:**
+- ✅ Sharpe ratio calculation
+- ✅ Maximum drawdown tracking
+- ✅ Win rate and profit factor
+- ✅ Risk-adjusted returns
+- ✅ Benchmark comparison (buy & hold)
+- ✅ Performance attribution analysis
+
+## Advanced Testing
+
+### **Backtesting Validation**
+```bash
+# Run comprehensive backtesting
+python pc/backtest.py --start-date 2024-01-01 --end-date 2024-12-31
+
+# Walk-forward analysis
+python pc/backtest.py --walk-forward --train-days 90 --test-days 30
+```
+
+### **Stress Testing**
+```bash
+# Test extreme market conditions
+python tests/test_stress_scenarios.py --scenario black_swan
+python tests/test_stress_scenarios.py --scenario flash_crash
+python tests/test_stress_scenarios.py --scenario high_volatility
+```
+
+### **Model Validation**
+```bash
+# Test model attention mechanisms
+python tests/test_attention_analysis.py
+
+# Validate feature importance
+python tests/test_feature_importance.py
+
+# Check for overfitting
+python tests/test_overfitting_detection.py
+```
+
+## Performance Benchmarks
+
+### **Expected Results:**
+- **Data Collection**: WebSocket latency < 10ms, order book processing < 20ms
+- **Trading Decisions**: Inference time < 50ms, decision frequency = 1 Hz
+- **Risk Management**: Risk calculation < 5ms, alert generation < 100ms
+- **Paper Trading**: Order execution simulation < 1ms per trade
+
+### **Trading Performance Targets:**
+- **Sharpe Ratio**: > 1.5
+- **Maximum Drawdown**: < 15%
+- **Win Rate**: > 55%
+- **Profit Factor**: > 1.5
+- **System Uptime**: > 99.9%
 
 ## Troubleshooting Common Issues
 

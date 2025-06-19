@@ -1,35 +1,43 @@
-# Crypto Time-Series Transformer Pipeline
+# TickerML: Crypto Paper Trading Bot with Reinforcement Learning
 
 ## Overview
 
-A two-stage system for minute-level crypto price forecasting using a lightweight Transformer.
+An intelligent paper trading bot that uses reinforcement learning and market microstructure analysis to make automated crypto trading decisions. The system combines real-time order book analysis, multi-exchange monitoring, and transformer-based models for optimal trade execution.
 
-- **Data Harvester (Raspberry Pi):** continuous minute-level fetch + daily/weekly ETL
-- **Training & Model Ops (PC):** feature engineering, training, quantization
-- **Inference & Dashboard (Raspberry Pi):** scheduled inference + local dashboard
+- **Data Engine (Raspberry Pi):** Real-time order book collection, trade flow analysis, multi-exchange monitoring
+- **RL Training & Model Ops (PC):** Reinforcement learning training, feature engineering, model optimization
+- **Paper Trading Engine (Raspberry Pi):** Automated trading decisions, portfolio management, risk control
+- **Dashboard & Analytics (Raspberry Pi):** Live P&L tracking, performance metrics, attention visualizations
 
-**Symbols:** BTC/USDT, ETH/USDT
+**Supported Exchanges:** Binance.US, Coinbase, Kraken, KuCoin
+**Trading Pairs:** BTC/USDT, ETH/USDT, BTC/USD, ETH/USD
 
-**Prediction Targets:**
-- Next-5, 10, 30 minute price (regression)
-- Up/down movement (classification + confidence)
+**Trading Capabilities:**
+- Automated buy/sell/hold decisions with position sizing
+- Multi-exchange arbitrage detection
+- Risk-adjusted portfolio management
+- Real-time market microstructure analysis
 
 ## Architecture
 
 ```
-[Raspberry Pi]
-├─ Cron @ 1 min → Fetch tick data → TS DB
-└─ Cron @ midnight → ETL dump → CSV / remote sync
+[Raspberry Pi - Data Collection]
+├─ WebSocket streams → Real-time order books → TimescaleDB
+├─ Trade flow analysis → Market microstructure features
+├─ Multi-exchange monitoring → Arbitrage opportunities
+└─ News sentiment → Qwen 3 analysis → Hourly aggregates
 
-[PC]
-├─ Ingest ETL dumps
-├─ Feature engineering (indicators + sentiment)
-├─ Train Transformer → export ONNX → quantize
-└─ Sync model → Raspberry Pi
+[PC - RL Training]
+├─ Experience replay buffer → PPO/A2C training
+├─ Multi-task Transformer → Trading decisions + Risk assessment
+├─ Backtesting engine → Strategy validation
+└─ Model export → ONNX quantization → Edge deployment
 
-[Raspberry Pi]
-├─ Cron @ N min → Load features → ONNX inference → log
-└─ Flask dashboard → visualize preds vs actuals
+[Raspberry Pi - Trading Engine]
+├─ Real-time inference → Trading decisions (50ms)
+├─ Paper trading engine → Portfolio management
+├─ Risk management → Position sizing + Stop losses
+└─ Performance dashboard → Live P&L + Attention maps
 ```
 
 ## Project Structure
@@ -37,14 +45,17 @@ A two-stage system for minute-level crypto price forecasting using a lightweight
 ```
 TickerML/
 ├── raspberry_pi/          # Raspberry Pi components
-│   ├── harvest.py         # Minute-level data harvester
-│   ├── export_etl.py      # Daily ETL dump
-│   ├── infer.py          # Inference service
-│   ├── dashboard.py      # Flask dashboard
+│   ├── harvest.py         # Real-time data collection (order books + trades)
+│   ├── paper_trader.py    # Paper trading engine & portfolio management
+│   ├── infer.py          # RL-based trading decisions
+│   ├── news_harvest.py   # News collection & Qwen 3 sentiment analysis
+│   ├── dashboard.py      # Trading dashboard with P&L tracking
+│   ├── export_etl.py      # Data export utilities
 │   └── requirements.txt   # Pi dependencies
 ├── pc/                   # PC components
-│   ├── features.py       # Feature engineering
-│   ├── train.py         # Model training
+│   ├── rl_trainer.py     # Reinforcement learning training pipeline
+│   ├── features.py       # Feature engineering + market microstructure
+│   ├── train.py         # Multi-task transformer training
 │   ├── export_quantize.py # ONNX export & quantization
 │   └── requirements.txt  # PC dependencies
 ├── scripts/              # Utility scripts
@@ -77,48 +88,67 @@ TickerML/
 
 ### 🚀 Ready to Use Commands
 
-#### **Test Everything**
+#### **Setup Paper Trading Bot**
 ```bash
-# Setup environment
+# Setup environment and dependencies
 python scripts/setup_test_env.py
 
-# Run comprehensive tests
+# Run comprehensive system tests
 python tests/test_data_collection.py
+python tests/test_paper_trader.py
 
-# Check status
+# Check system status
 python tests/test_summary.py
 ```
 
-#### **Manual Data Collection**
+#### **Start Data Collection**
 ```bash
-# Single collection (Binance.US + CoinGecko fallback)
+# Real-time order book collection (WebSocket)
 python raspberry_pi/harvest.py
 
-# Export to CSV
-python raspberry_pi/export_etl.py
+# News and sentiment analysis
+python raspberry_pi/news_harvest.py
 
-# Check what was collected
-sqlite3 data/db/crypto_ohlcv.db "SELECT symbol, COUNT(*) FROM ohlcv GROUP BY symbol;"
+# Check collected data
+sqlite3 data/db/crypto_ohlcv.db "SELECT symbol, COUNT(*) FROM order_books GROUP BY symbol;"
+sqlite3 data/db/crypto_news.db "SELECT COUNT(*) FROM news_sentiment_hourly;"
 ```
 
-#### **Automated Collection Setup**
+#### **Train RL Trading Model**
 ```bash
-# Edit crontab
-crontab -e
+# Feature engineering with market microstructure
+python pc/features.py
 
-# Add this line (replace /path/to/TickerML with your actual path):
-* * * * * cd /Users/zach/Documents/Git/TickerML && python raspberry_pi/harvest.py >> logs/harvest.log 2>&1
+# Reinforcement learning training
+python pc/rl_trainer.py --episodes 1000 --learning_rate 0.001
 
-# Monitor collection
-tail -f logs/harvest.log
+# Export optimized model
+python pc/export_quantize.py
 ```
 
-#### **Dashboard (after collecting data)**
+#### **Start Paper Trading**
 ```bash
-# Start web dashboard
+# Launch paper trading engine
+python raspberry_pi/paper_trader.py
+
+# Start trading dashboard
 python raspberry_pi/dashboard.py
+# Visit: http://localhost:5000 for live P&L tracking
+```
 
-# Visit: http://localhost:5000
+#### **Monitor Performance**
+```bash
+# Check trading performance
+python -c "
+import sqlite3
+conn = sqlite3.connect('data/db/crypto_ohlcv.db')
+cursor = conn.execute('SELECT * FROM portfolio_state ORDER BY timestamp DESC LIMIT 1')
+print('Current Portfolio:', cursor.fetchone())
+conn.close()
+"
+
+# View recent trades
+tail -f logs/paper_trader.log
 ```
 
 ### Automated Setup
@@ -205,34 +235,47 @@ python pc/export_quantize.py  # ONNX export & quantization
 
 ## Current Status
 
-✅ **Working Components:**
-- Database setup and operations
-- Data harvesting from Binance.US
-- News harvesting and sentiment analysis (Raspberry Pi)
-- CSV export functionality
-- Error handling and logging
-- Duplicate prevention
+✅ **Current Implementation:**
+- Real-time OHLCV data collection from Binance.US
+- News harvesting and Qwen 3 sentiment analysis  
+- Basic prediction model with Transformer architecture
+- Web dashboard with price visualization
+- Database operations and logging
 
-✅ **APIs Available:**
-- Binance.US: `https://api.binance.us/api/v3`
-- CoinGecko: `https://api.coingecko.com/api/v3`
-- NewsAPI: `https://newsapi.org/v2` (optional)
+🚧 **In Development (Paper Trading Bot):**
+- Real-time order book collection
+- Multi-exchange support (Coinbase, Kraken, KuCoin)
+- Paper trading engine with portfolio management
+- Reinforcement learning training pipeline
+- Market microstructure feature engineering
+- Live P&L tracking and risk management
 
-❌ **Known Issues:**
-- Binance.com blocked (geographic restriction)
-- Need 24+ hours of data for meaningful analysis
+✅ **APIs Supported:**
+- Binance.US: `https://api.binance.us/api/v3` (WebSocket + REST)
+- Coinbase: `https://api.exchange.coinbase.com` (planned)
+- Kraken: `https://api.kraken.com` (planned)
+- KuCoin: `https://api.kucoin.com` (planned)
+- NewsAPI: `https://newsapi.org/v2`
+
+❌ **Current Limitations:**
+- Paper trading only (no real money)
+- Limited to major crypto pairs
+- Requires 24+ hours of data for RL training
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `raspberry_pi/harvest.py` | Data collection (Binance.US + CoinGecko fallback) |
-| `raspberry_pi/news_harvest.py` | News collection and sentiment analysis |
-| `raspberry_pi/export_etl.py` | CSV export |
-| `raspberry_pi/dashboard.py` | Web dashboard |
-| `tests/test_data_collection.py` | Comprehensive testing |
-| `tests/test_news_harvest.py` | News harvesting tests |
-| `tests/test_summary.py` | Status overview |
+| `raspberry_pi/harvest.py` | Real-time order book & trade data collection |
+| `raspberry_pi/paper_trader.py` | Paper trading engine with portfolio management |
+| `raspberry_pi/infer.py` | RL-based trading decision engine |
+| `raspberry_pi/news_harvest.py` | News collection and Qwen 3 sentiment analysis |
+| `raspberry_pi/dashboard.py` | Trading dashboard with live P&L tracking |
+| `pc/rl_trainer.py` | Reinforcement learning training pipeline |
+| `pc/features.py` | Market microstructure feature engineering |
+| `tests/test_paper_trader.py` | Paper trading system validation |
+| `tests/test_rl_training.py` | RL training pipeline tests |
+| `tests/test_data_collection.py` | Multi-exchange data collection tests |
 | `scripts/setup_test_env.py` | Test environment setup |
 
 ## Configuration
@@ -249,34 +292,37 @@ Edit `config/config.yaml` to customize:
 | Layer | Technology |
 |-------|------------|
 | **Language** | Python 3.10+ |
-| **Database** | SQLite (or TimescaleDB) |
+| **Database** | TimescaleDB / SQLite |
 | **ML Framework** | PyTorch |
-| **Inference** | ONNX Runtime |
-| **Dashboard** | Flask + Chart.js |
-| **Scheduling** | cron |
-| **Feature Engineering** | pandas, numpy, ta |
-| **Sentiment Analysis** | Gemma 3 4B (via Ollama) |
-| **Quantization** | onnxruntime.quantization |
+| **RL Framework** | Stable-Baselines3 / Ray RLlib |
+| **Inference** | ONNX Runtime (INT8 quantized) |
+| **Real-time Data** | WebSocket APIs + asyncio |
+| **Dashboard** | Flask + Chart.js + Plotly |
+| **Message Queue** | Redis Streams / Apache Kafka |
+| **Feature Engineering** | pandas, numpy, ta-lib |
+| **Sentiment Analysis** | Qwen 3 (via Ollama) |
+| **Paper Trading** | Custom engine with slippage modeling |
+| **Risk Management** | Portfolio optimization libraries |
 
 ## Components & Responsibilities
 
 | Component | Platform | Primary Tasks | Schedule |
 |-----------|----------|---------------|----------|
-| **Minute-level Harvester** | Raspberry Pi | Call Binance REST API for BTC/USDT & ETH/USDT every 1 min<br>Insert timestamped OHLCV into TS DB | Every minute (cron) |
-| **News Harvester** | Raspberry Pi | Fetch crypto news via NewsAPI<br>Analyze sentiment with Gemma 3 or keyword fallback<br>Store articles and hourly sentiment aggregates in DB | Every 15 minutes (cron) |
-| **ETL Dump & Sync** | Raspberry Pi | At 00:00 UTC, export last 24h of DB → CSV<br>(Optional) SCP to PC or cloud storage | Daily at midnight (cron) |
-| **Feature Engineering** | PC | Read CSVs/DB dumps<br>Compute RSI, MACD, VWAP, Bollinger bands, moving avgs, volatility<br>Use stored sentiment data or fetch fresh via NewsAPI | On training run (ad-hoc) |
-| **Model Training** | PC (GPU/CPU) | Prepare sliding windows (60 min history → targets at 5,10,30 min)<br>Define 4-6-layer Transformer<br>Train with mixed precision, track MSE & classification AUC | As needed (ad-hoc) |
-| **Export & Quantization** | PC | Export best PyTorch checkpoint → ONNX<br>Run ONNX Runtime INT8 quantization | Post-training |
-| **Inference Service** | Raspberry Pi | Load quantized ONNX model<br>Every 5 min: query last 60 min features from DB → predict next intervals<br>Log preds + confidences | Every 5 min (cron or daemon) |
-| **Dashboard & Alerts** | Raspberry Pi | Flask/FastAPI app with time series charts<br>Confidence gauges<br>(Optional) Email or webhook alerts on high-confidence signals | Continuous |
+| **Real-time Data Collector** | Raspberry Pi | WebSocket streams from multiple exchanges<br>Order book collection (5-10 sec snapshots)<br>Trade flow analysis and market microstructure features | Continuous (WebSocket) |
+| **News & Sentiment Engine** | Raspberry Pi | Fetch crypto news via NewsAPI<br>Analyze sentiment with Qwen 3 LLM<br>Generate hourly sentiment scores and market regime indicators | Every 15 minutes |
+| **Paper Trading Engine** | Raspberry Pi | Execute trading decisions based on RL model<br>Portfolio management with risk controls<br>Position sizing and stop-loss management<br>Transaction cost simulation | Real-time (sub-second) |
+| **Feature Engineering** | PC | Market microstructure features (order imbalance, spread dynamics)<br>Technical indicators and portfolio-aware features<br>Multi-exchange arbitrage signals | On training run |
+| **RL Training Pipeline** | PC (GPU) | PPO/A2C training with experience replay<br>Multi-task learning (price + action + risk)<br>Backtesting and strategy validation<br>Attention mechanism analysis | Daily/Weekly retraining |
+| **Model Deployment** | PC → Pi | ONNX export with INT8 quantization<br>Model validation and performance benchmarking<br>Edge deployment optimization | Post-training |
+| **Trading Dashboard** | Raspberry Pi | Live P&L tracking and performance metrics<br>Attention weight visualizations<br>Risk monitoring and portfolio analytics<br>Trade execution logs and analysis | Continuous |
+| **Risk Management** | Raspberry Pi | Real-time drawdown monitoring<br>Position correlation analysis<br>Circuit breakers for anomalous conditions<br>Performance degradation alerts | Continuous |
 
 ## Model Architecture
 
-The system uses a lightweight Transformer for time-series forecasting:
+The system uses a multi-task Transformer for trading decisions and risk assessment:
 
 ```python
-class TimeSeriesTransformer(nn.Module):
+class TradingTransformer(nn.Module):
     def __init__(self, d_model=128, n_heads=4, n_layers=6, feature_dim=F):
         super().__init__()
         self.pos_enc = PositionalEncoding(d_model)
@@ -284,16 +330,33 @@ class TimeSeriesTransformer(nn.Module):
         self.transformer = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(d_model, n_heads), num_layers=n_layers
         )
-        self.reg_head = nn.Linear(d_model, 3)  # next-5/10/30-min price
-        self.cls_head = nn.Linear(d_model, 2)  # up/down
+        # Multi-task heads for trading bot
+        self.price_head = nn.Linear(d_model, 3)      # price predictions
+        self.action_head = nn.Linear(d_model, 3)     # buy/sell/hold
+        self.position_head = nn.Linear(d_model, 1)   # position sizing
+        self.risk_head = nn.Linear(d_model, 1)       # risk assessment
 
     def forward(self, x):
         x = self.input_proj(x) + self.pos_enc(x)
-        z = self.transformer(x)
-        out_reg = self.reg_head(z[:, -1, :])
-        out_cls = self.cls_head(z[:, -1, :])
-        return out_reg, out_cls
+        z = self.transformer(x)  
+        features = z[:, -1, :]
+        
+        return {
+            'price_pred': self.price_head(features),
+            'action': self.action_head(features),
+            'position_size': torch.sigmoid(self.position_head(features)),
+            'risk_score': torch.sigmoid(self.risk_head(features))
+        }
 ```
+
+## Reinforcement Learning Integration
+
+The trading bot uses PPO (Proximal Policy Optimization) for continuous learning:
+
+- **State Space**: Order book features, technical indicators, portfolio state, sentiment scores
+- **Action Space**: Buy/Sell/Hold with position sizing (0-25% of portfolio)
+- **Reward Function**: Risk-adjusted returns with drawdown penalties
+- **Experience Replay**: Stores trading decisions and outcomes for training
 
 ## Usage Examples
 

@@ -9,7 +9,7 @@ The news harvesting system continuously collects cryptocurrency-related news art
 ```
 [Raspberry Pi] News Harvester
 ├─ Fetch news articles via NewsAPI
-├─ Analyze sentiment using Gemma 3 4B LLM (REQUIRED)
+├─ Analyze sentiment using Qwen 3 LLM (REQUIRED)
 ├─ Store articles in database with deduplication
 ├─ Generate hourly sentiment aggregates
 └─ Run every 15 minutes via cron
@@ -65,7 +65,7 @@ features:
     news_api_key: "your_actual_api_key_here"
     update_interval_minutes: 15
     ollama_host: "http://localhost:11434"
-    model: "gemma3:4b"
+    model: "qwen3:4b"
 ```
 
 Or set environment variable:
@@ -75,21 +75,21 @@ export NEWS_API_KEY="your_actual_api_key_here"
 
 ### 2. Set Up Sentiment Analysis (REQUIRED)
 
-#### Ollama + Gemma 3 4B LLM (REQUIRED)
-The system requires Ollama with Gemma 3 4B model for sentiment analysis. There is no fallback method.
+#### Ollama + Qwen 3 LLM (REQUIRED)
+The system requires Ollama with Qwen 3 model for sentiment analysis. There is no fallback method.
 
 ```bash
 # Install Ollama
 curl -fsSL https://ollama.ai/install.sh | sh
 
-# Pull Gemma 3 model
-ollama pull gemma3:4b
+# Pull Qwen 3 model
+ollama pull qwen3:4b
 
 # Start Ollama service
 ollama serve
 ```
 
-**Important**: The news harvester will fail if Ollama is not available or if the Gemma 3 model cannot be accessed. This ensures consistent, high-quality sentiment analysis.
+**Important**: The news harvester will fail if Ollama is not available or if the Qwen 3 model cannot be accessed. This ensures consistent, high-quality sentiment analysis.
 
 ### 3. Initialize Database Tables
 ```bash
@@ -142,7 +142,7 @@ grep ERROR logs/news_harvest.log
 
 ### Sentiment Analysis Method
 
-**Gemma 3 4B LLM** (Required)
+**Qwen 3 LLM** (Required)
 - High-quality sentiment analysis with contextual understanding
 - Returns scores from -1 (very negative) to +1 (very positive)
 - Requires Ollama installation and running service
@@ -184,7 +184,7 @@ if not sentiment_scores:
 features:
   sentiment:
     enabled: true
-    model: "gemma3:4b"
+    model: "qwen3:4b"
     update_interval_minutes: 15
     sources: ["newsapi"]
     ollama_host: "http://localhost:11434"
@@ -195,7 +195,7 @@ features:
 ```bash
 NEWS_API_KEY=your_newsapi_key_here
 OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=gemma3:4b
+OLLAMA_MODEL=qwen3:4b
 ```
 
 ## Monitoring & Maintenance
