@@ -265,21 +265,39 @@ Return only the numerical score (e.g., 0.3, -0.7, 0.0):"""
             }],
             options={
                 'temperature': 0.1,  # Low temperature for consistent results
-                'num_predict': 10,   # Short response expected
+                'num_predict': 100,  # Allow more tokens for reasoning model
             }
         )
         
         # Extract and parse the sentiment score
         sentiment_text = response['message']['content'].strip()
         
-        # Try to extract a number from the response
+        # Handle Qwen 3 reasoning format with <think> tags
         import re
-        numbers = re.findall(r'-?\d+\.?\d*', sentiment_text)
         
-        if numbers:
-            sentiment_score = float(numbers[0])
-            # Clamp to [-1, 1] range
-            sentiment_score = max(-1.0, min(1.0, sentiment_score))
+        # If response contains <think> tags, extract content after them
+        if '<think>' in sentiment_text and '</think>' in sentiment_text:
+            # Extract content after the thinking process
+            parts = sentiment_text.split('</think>')
+            if len(parts) > 1:
+                sentiment_text = parts[1].strip()
+        
+        # Try to extract a number from the response (look for numbers between -1 and 1)
+        numbers = re.findall(r'-?[01]?\.?\d*', sentiment_text)
+        
+        # Filter for valid sentiment scores
+        valid_scores = []
+        for num_str in numbers:
+            try:
+                num = float(num_str)
+                if -1 <= num <= 1:
+                    valid_scores.append(num)
+            except ValueError:
+                continue
+        
+        if valid_scores:
+            sentiment_score = valid_scores[0]  # Take the first valid score
+            logger.info(f"Parsed sentiment score {sentiment_score} from response: {sentiment_text[:100]}...")
             return sentiment_score
         else:
             logger.warning(f"Could not parse sentiment score from Qwen 3 response: {sentiment_text}")

@@ -39,14 +39,16 @@ python tests/test_data_collection.py
 # Test individual components
 python tests/test_news_harvest.py
 python tests/test_sentiment.py
+python tests/test_sentiment_no_fallback.py
 python tests/test_features.py
 python tests/test_pipeline.py
+python tests/test_newsapi.py
 
 # Check system status
 python tests/test_summary.py
 
-# Verify Gemma 3 configuration
-python scripts/verify_gemma_config.py
+# Verify Qwen 3 configuration
+python scripts/verify_qwen_config.py
 ```
 
 ### Data Collection & Paper Trading (Raspberry Pi)
@@ -61,9 +63,8 @@ python raspberry_pi/paper_trader.py
 python raspberry_pi/news_harvest.py
 
 # Check collected data
-sqlite3 data/db/crypto_ohlcv.db "SELECT symbol, COUNT(*) FROM order_books GROUP BY symbol;"
-sqlite3 data/db/crypto_ohlcv.db "SELECT * FROM portfolio_state ORDER BY timestamp DESC LIMIT 5;"
-sqlite3 data/db/crypto_news.db "SELECT COUNT(*) FROM news_sentiment_hourly;"
+sqlite3 data/db/crypto_data.db "SELECT symbol, COUNT(*) FROM ohlcv GROUP BY symbol;"
+sqlite3 data/db/crypto_data.db "SELECT * FROM ohlcv ORDER BY timestamp DESC LIMIT 5;"
 
 # Monitor trading performance
 tail -f logs/paper_trader.log
@@ -74,17 +75,11 @@ tail -f logs/paper_trader.log
 # Market microstructure feature engineering
 python pc/features.py
 
-# Reinforcement learning training
-python pc/rl_trainer.py --episodes 1000 --algorithm ppo
-
 # Transformer model training (multi-task)
 python pc/train.py --epochs 100 --batch_size 32 --learning_rate 0.001
 
 # Export and quantize model
 python pc/export_quantize.py
-
-# Backtesting and validation
-python pc/backtest.py --start_date 2024-01-01 --end_date 2024-12-31
 ```
 
 ### Trading Dashboard & Monitoring (Raspberry Pi)
@@ -96,8 +91,8 @@ python raspberry_pi/infer.py
 python raspberry_pi/dashboard.py
 # Access at http://localhost:5000 for live P&L tracking
 
-# Risk monitoring
-python raspberry_pi/risk_monitor.py
+# Live inference for trading decisions
+python raspberry_pi/infer.py
 ```
 
 ### Monitoring
@@ -108,11 +103,11 @@ tail -f logs/paper_trader.log
 tail -f logs/news_harvest.log
 tail -f logs/infer.log
 
-# Monitor trading performance
-watch "sqlite3 data/db/crypto_ohlcv.db 'SELECT * FROM portfolio_state ORDER BY timestamp DESC LIMIT 1;'"
+# Monitor data collection
+watch "sqlite3 data/db/crypto_data.db 'SELECT symbol, COUNT(*) FROM ohlcv GROUP BY symbol;'"
 
-# Check order book data quality
-watch "sqlite3 data/db/crypto_ohlcv.db 'SELECT symbol, COUNT(*) FROM order_books GROUP BY symbol;'"
+# Check recent data
+watch "sqlite3 data/db/crypto_data.db 'SELECT * FROM ohlcv ORDER BY timestamp DESC LIMIT 5;'"
 ```
 
 ## Code Architecture
@@ -173,16 +168,12 @@ watch "sqlite3 data/db/crypto_ohlcv.db 'SELECT symbol, COUNT(*) FROM order_books
 
 ### Database Schema
 
-**Trading Data** (`data/db/crypto_ohlcv.db`):
+**Trading Data** (`data/db/crypto_data.db`):
 - `ohlcv` table: timestamp, symbol, open, high, low, close, volume
-- `order_books` table: timestamp, symbol, bid/ask levels, quantities, exchange
-- `trades` table: timestamp, symbol, price, volume, side, exchange
-- `portfolio_state` table: timestamp, total_value, positions, cash_balance
-- `trade_history` table: timestamp, symbol, action, quantity, price, pnl
-- `trade_decisions` table: timestamp, model_output, confidence, features
-- `performance_metrics` table: timestamp, sharpe_ratio, drawdown, win_rate
+- `predictions` table: timestamp, symbol, prediction_5m, prediction_10m, prediction_30m, direction
+- `sentiment_data` table: timestamp, news_count, sentiment_score, market_regime
 
-**News Data** (`data/db/crypto_news.db`):
+**News Data** (integrated into main database):
 - `news_articles` table: timestamp, title, content, url, sentiment_score
 - `news_sentiment_hourly` table: hourly sentiment aggregates
 
@@ -243,7 +234,7 @@ All settings in `config/config.yaml`:
 - Dropout regularization and layer normalization
 
 ### Sentiment Analysis
-- Gemma 3 4B model via Ollama for contextual understanding
+- Qwen 3 4B model via Ollama for contextual understanding
 - Real-time crypto news processing from multiple sources
 - Keyword fallback system for reliability
 - Hourly aggregation for reduced noise
@@ -254,6 +245,26 @@ All settings in `config/config.yaml`:
 - Efficient feature computation using vectorized operations
 - Memory usage monitoring and garbage collection
 
+## Current Implementation Status
+
+**✅ Completed Components:**
+- Real-time OHLCV data harvesting from Binance.US API
+- Fallback to CoinGecko API for redundancy
+- SQLite database with automatic backfill (up to 7 days)
+- News collection with NewsAPI integration
+- Qwen 3 sentiment analysis via Ollama
+- Transformer model training with multi-task outputs
+- ONNX model export and quantization
+- Web dashboard with real-time price visualization
+- Comprehensive test suite
+
+**🚧 In Progress:**
+- Paper trading engine implementation
+- Reinforcement learning training pipeline
+- Multi-exchange order book collection
+- Real-time trading decision system
+- Portfolio management and risk controls
+
 ## Troubleshooting
 
 **API Issues**: Check internet connectivity, verify API endpoints, monitor rate limits
@@ -261,11 +272,12 @@ All settings in `config/config.yaml`:
 **Model Training**: Monitor GPU memory, adjust batch size, check data quality
 **Inference Performance**: Profile ONNX model, optimize feature computation, monitor memory usage
 **Sentiment Analysis**: Ensure Ollama is running (`ollama serve`), verify model availability (`ollama list`)
+**Qwen Model**: If missing, install with `ollama pull qwen3:4b` (or `qwen3:1b` for lighter systems)
 
 ## File Locations
 
 **Configuration**: `config/config.yaml`
-**Databases**: `data/db/crypto_ohlcv.db`, `data/db/crypto_news.db`
+**Database**: `data/db/crypto_data.db`
 **Models**: `models/checkpoints/`, `models/onnx/`
 **Data Exports**: `data/dumps/`
 **Logs**: `logs/`

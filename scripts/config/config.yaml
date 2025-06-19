@@ -1,0 +1,16 @@
+# Basic configuration for testing
+data:
+  symbols: ["BTCUSDT", "ETHUSDT"]
+  binance_api_base: "https://api.binance.com/api/v3"
+  interval: "1m"
+
+database:
+  type: "sqlite"
+  # OHLCV price and prediction data
+  ohlcv_path: "data/db/crypto_ohlcv.db"
+  # News articles and sentiment data  
+  news_path: "data/db/crypto_news.db"
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(levelname)s - %(message)s"

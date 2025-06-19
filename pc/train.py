@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 FEATURES_PATH = Path(__file__).parent.parent / "data" / "features"
 MODELS_PATH = Path(__file__).parent.parent / "models" / "checkpoints"
-    FEATURE_SCALER_FILENAME = "feature_scaler.pkl"
+FEATURE_SCALER_FILENAME = "feature_scaler.pkl"
 SEQUENCE_LENGTH = 60  # 60 minutes of history
 BATCH_SIZE = 32
 EPOCHS = 100
@@ -190,7 +190,7 @@ def load_and_prepare_data():
         all_targets_reg = []
         all_targets_cls = []
         
-        for symbol in ["BTCUSDT", "ETHUSDT"]:
+        for symbol in ["BTCUSD", "ETHUSD"]:
             feature_file = FEATURES_PATH / f"{symbol}_features.pkl"
             
             if not feature_file.exists():
@@ -418,6 +418,7 @@ def save_checkpoint(model, optimizer, epoch, loss, metrics, feature_columns):
 
 def main():
     """Main training function"""
+    global shutdown_requested
     logger.info(f"Starting training on device: {DEVICE}")
     
     # Load and prepare data
@@ -445,42 +446,42 @@ def main():
             logger.info(f"Epoch {epoch + 1}/{EPOCHS}")
             
             # Train
-        train_loss, train_reg_loss, train_cls_loss = train_epoch(
-            model, train_loader, optimizer, criterion_reg, criterion_cls
-        )
-        
-        # Validate
-        val_loss, val_reg_loss, val_cls_loss, mse, mae, accuracy, auc = validate_epoch(
-            model, val_loader, criterion_reg, criterion_cls
-        )
-        
-        # Learning rate scheduling
-        scheduler.step(val_loss)
-        
-        # Log metrics
-        logger.info(f"Train Loss: {train_loss:.4f} (Reg: {train_reg_loss:.4f}, Cls: {train_cls_loss:.4f})")
-        logger.info(f"Val Loss: {val_loss:.4f} (Reg: {val_reg_loss:.4f}, Cls: {val_cls_loss:.4f})")
-        logger.info(f"Val Metrics - MSE: {mse:.4f}, MAE: {mae:.4f}, Acc: {accuracy:.4f}, AUC: {auc:.4f}")
-        
-        # Save checkpoint if best
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            metrics = {
-                'mse': mse,
-                'mae': mae,
-                'accuracy': accuracy,
-                'auc': auc
-            }
-            best_checkpoint_path = save_checkpoint(
-                model, optimizer, epoch, val_loss, metrics, feature_columns
+            train_loss, train_reg_loss, train_cls_loss = train_epoch(
+                model, train_loader, optimizer, criterion_reg, criterion_cls
             )
-            logger.info(f"New best model saved with validation loss: {val_loss:.4f}")
-        
-        # Early stopping
-            if optimizer.param_groups[0]['lr'] < 1e-6 and not shutdown_requested:
-            logger.info("Learning rate too small, stopping training")
-            break
             
+            # Validate
+            val_loss, val_reg_loss, val_cls_loss, mse, mae, accuracy, auc = validate_epoch(
+                model, val_loader, criterion_reg, criterion_cls
+            )
+            
+            # Learning rate scheduling
+            scheduler.step(val_loss)
+            
+            # Log metrics
+            logger.info(f"Train Loss: {train_loss:.4f} (Reg: {train_reg_loss:.4f}, Cls: {train_cls_loss:.4f})")
+            logger.info(f"Val Loss: {val_loss:.4f} (Reg: {val_reg_loss:.4f}, Cls: {val_cls_loss:.4f})")
+            logger.info(f"Val Metrics - MSE: {mse:.4f}, MAE: {mae:.4f}, Acc: {accuracy:.4f}, AUC: {auc:.4f}")
+            
+            # Save checkpoint if best
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                metrics = {
+                    'mse': mse,
+                    'mae': mae,
+                    'accuracy': accuracy,
+                    'auc': auc
+                }
+                best_checkpoint_path = save_checkpoint(
+                    model, optimizer, epoch, val_loss, metrics, feature_columns
+                )
+                logger.info(f"New best model saved with validation loss: {val_loss:.4f}")
+            
+            # Early stopping
+            if optimizer.param_groups[0]['lr'] < 1e-6 and not shutdown_requested:
+                logger.info("Learning rate too small, stopping training")
+                break
+                
             if shutdown_requested:
                 logger.info("Shutdown requested during epoch, saving checkpoint before exiting.")
                 # Potentially save a checkpoint here if needed before full exit
@@ -488,7 +489,6 @@ def main():
                 
     except KeyboardInterrupt:
         logger.info("KeyboardInterrupt received, requesting shutdown...")
-        global shutdown_requested
         shutdown_requested = True
     finally:
         if shutdown_requested:
