@@ -20,6 +20,10 @@ import numpy as np
 import pandas as pd
 import yaml
 
+# Import advanced execution simulator and risk manager
+from raspberry_pi.execution_simulator import AdvancedExecutionSimulator, ExchangeType
+from raspberry_pi.risk_manager import AdvancedRiskManager
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -137,6 +141,12 @@ class PaperTradingEngine:
         self.running = False
         self.engine_thread = None
         self.lock = threading.RLock()
+        
+        # Initialize advanced execution simulator
+        self.execution_simulator = AdvancedExecutionSimulator(db_path=self.db_path)
+        
+        # Initialize advanced risk manager
+        self.risk_manager = AdvancedRiskManager(db_path=self.db_path, config=self.config)
         
         # Initialize database
         self._init_database()
@@ -482,6 +492,28 @@ class PaperTradingEngine:
                         logger.error(f"Insufficient cash: need ${required_cash:.2f}, have ${self.cash_balance:.2f}")
                         return ""
                 
+                # Advanced risk management check
+                portfolio_positions = self._get_portfolio_for_risk_check()
+                symbols_list = list(portfolio_positions.keys()) + [symbol]
+                
+                # Calculate position value
+                current_price = self._get_current_price(symbol) or 0
+                position_value = quantity * current_price
+                
+                # Check risk limits
+                risk_allowed, risk_reason, max_allowed_size = self.risk_manager.check_position_limits(
+                    symbol, position_value, portfolio_positions, symbols_list
+                )
+                
+                if not risk_allowed:
+                    logger.warning(f"Order rejected by risk management: {risk_reason}")
+                    logger.info(f"Max allowed position size: ${max_allowed_size:.2f}")
+                    return ""
+                
+                # Log risk assessment
+                risk_metrics = self.risk_manager.assess_portfolio_risk(portfolio_positions, symbols_list)
+                self.risk_manager.log_risk_metrics(risk_metrics)
+                
                 # Create order
                 order = Order(
                     order_id=order_id,
@@ -511,49 +543,262 @@ class PaperTradingEngine:
                 return ""
     
     def _execute_order(self, order_id: str) -> bool:
-        """Execute a paper trading order."""
+        """Execute a paper trading order with advanced simulation."""
         try:
             order = self.orders.get(order_id)
             if not order or order.status != OrderStatus.PENDING:
                 return False
             
-            # Get execution price
-            if order.order_type == OrderType.MARKET:
-                execution_price = self._simulate_market_impact(order.symbol, order.quantity, order.side)
-            else:
-                execution_price = order.price
+            # Use advanced execution simulator
+            side_str = 'buy' if order.side == OrderSide.BUY else 'sell'
+            order_type_str = order.order_type.value
             
-            if not execution_price:
+            execution_result = self.execution_simulator.simulate_order_execution(
+                symbol=order.symbol,
+                side=side_str,
+                quantity=order.quantity,
+                order_type=order_type_str,
+                price=order.price,
+                exchange=ExchangeType.BINANCE_US
+            )
+            
+            # Log detailed execution metrics
+            self.execution_simulator.log_execution_metrics(execution_result, order_id)
+            
+            # Check if order was filled
+            if execution_result.filled_quantity <= 0:
                 order.status = OrderStatus.REJECTED
+                logger.warning(f"Order {order_id} rejected: no fills possible")
                 return False
             
-            # Calculate commission
-            commission = order.quantity * execution_price * self.commission_rate
-            
-            # Execute the trade
-            if order.side == OrderSide.BUY:
-                self._execute_buy(order, execution_price, commission)
+            # Handle partial fills
+            if execution_result.remaining_quantity > 0:
+                order.status = OrderStatus.PARTIALLY_FILLED
+                logger.info(f"Order {order_id} partially filled: {execution_result.filled_quantity:.6f} of {order.quantity:.6f}")
             else:
-                self._execute_sell(order, execution_price, commission)
+                order.status = OrderStatus.FILLED
             
-            # Update order status
-            order.status = OrderStatus.FILLED
-            order.filled_quantity = order.quantity
-            order.avg_fill_price = execution_price
+            # Update order with execution details
+            order.filled_quantity = execution_result.filled_quantity
+            order.avg_fill_price = execution_result.avg_fill_price
+            
+            # Calculate commission on filled quantity
+            commission = execution_result.filled_quantity * execution_result.avg_fill_price * self.commission_rate
             order.commission = commission
             
-            # Store trade
-            self._store_trade(order, execution_price, commission)
+            # Check for toxic fill warning
+            if execution_result.is_toxic_fill:
+                logger.warning(f"TOXIC FILL WARNING: Order {order_id} queue position {execution_result.queue_position} indicates adverse selection")
+            
+            # Execute the trade with actual fill results
+            if order.side == OrderSide.BUY:
+                self._execute_buy_advanced(order, execution_result, commission)
+            else:
+                self._execute_sell_advanced(order, execution_result, commission)
+            
+            # Store trade with detailed execution data
+            self._store_trade_advanced(order, execution_result, commission)
             
             # Update portfolio state
             self._save_portfolio_state()
             
-            logger.info(f"Executed order {order_id}: {order.quantity} {order.symbol} @ ${execution_price:.2f}")
+            logger.info(f"Executed order {order_id}: {execution_result.filled_quantity:.6f} {order.symbol} @ ${execution_result.avg_fill_price:.2f}")
+            logger.info(f"  Latency: {execution_result.latency_ms:.1f}ms, Queue Position: {execution_result.queue_position}")
+            
             return True
             
         except Exception as e:
             logger.error(f"Failed to execute order {order_id}: {e}")
             return False
+    
+    def _execute_buy_advanced(self, order: Order, execution_result, commission: float):
+        """Execute a buy order with advanced execution results."""
+        total_cost = execution_result.filled_quantity * execution_result.avg_fill_price + commission
+        
+        # Update cash balance
+        self.cash_balance -= total_cost
+        
+        # Update or create position
+        if order.symbol in self.positions:
+            position = self.positions[order.symbol]
+            if position.side == PositionSide.LONG:
+                # Add to existing long position
+                total_quantity = position.quantity + execution_result.filled_quantity
+                position.entry_price = ((position.entry_price * position.quantity) + 
+                                      (execution_result.avg_fill_price * execution_result.filled_quantity)) / total_quantity
+                position.quantity = total_quantity
+            elif position.side == PositionSide.SHORT:
+                # Reduce short position
+                if execution_result.filled_quantity >= position.quantity:
+                    # Close short and potentially open long
+                    remaining_quantity = execution_result.filled_quantity - position.quantity
+                    realized_pnl = position.quantity * (position.entry_price - execution_result.avg_fill_price)
+                    position.realized_pnl += realized_pnl
+                    
+                    if remaining_quantity > 0:
+                        position.side = PositionSide.LONG
+                        position.quantity = remaining_quantity
+                        position.entry_price = execution_result.avg_fill_price
+                    else:
+                        position.side = PositionSide.FLAT
+                        position.quantity = 0
+                else:
+                    # Partially close short position
+                    position.quantity -= execution_result.filled_quantity
+                    realized_pnl = execution_result.filled_quantity * (position.entry_price - execution_result.avg_fill_price)
+                    position.realized_pnl += realized_pnl
+        else:
+            # Create new long position
+            self.positions[order.symbol] = Position(
+                symbol=order.symbol,
+                side=PositionSide.LONG,
+                quantity=execution_result.filled_quantity,
+                entry_price=execution_result.avg_fill_price,
+                current_price=execution_result.avg_fill_price,
+                unrealized_pnl=0.0,
+                realized_pnl=0.0,
+                timestamp=time.time()
+            )
+    
+    def _execute_sell_advanced(self, order: Order, execution_result, commission: float):
+        """Execute a sell order with advanced execution results."""
+        total_proceeds = execution_result.filled_quantity * execution_result.avg_fill_price - commission
+        
+        # Update cash balance
+        self.cash_balance += total_proceeds
+        
+        # Update or create position
+        if order.symbol in self.positions:
+            position = self.positions[order.symbol]
+            if position.side == PositionSide.SHORT:
+                # Add to existing short position
+                total_quantity = position.quantity + execution_result.filled_quantity
+                position.entry_price = ((position.entry_price * position.quantity) + 
+                                      (execution_result.avg_fill_price * execution_result.filled_quantity)) / total_quantity
+                position.quantity = total_quantity
+            elif position.side == PositionSide.LONG:
+                # Reduce long position
+                if execution_result.filled_quantity >= position.quantity:
+                    # Close long and potentially open short
+                    remaining_quantity = execution_result.filled_quantity - position.quantity
+                    realized_pnl = position.quantity * (execution_result.avg_fill_price - position.entry_price)
+                    position.realized_pnl += realized_pnl
+                    
+                    if remaining_quantity > 0:
+                        position.side = PositionSide.SHORT
+                        position.quantity = remaining_quantity
+                        position.entry_price = execution_result.avg_fill_price
+                    else:
+                        position.side = PositionSide.FLAT
+                        position.quantity = 0
+                else:
+                    # Partially close long position
+                    position.quantity -= execution_result.filled_quantity
+                    realized_pnl = execution_result.filled_quantity * (execution_result.avg_fill_price - position.entry_price)
+                    position.realized_pnl += realized_pnl
+        else:
+            # Create new short position
+            self.positions[order.symbol] = Position(
+                symbol=order.symbol,
+                side=PositionSide.SHORT,
+                quantity=execution_result.filled_quantity,
+                entry_price=execution_result.avg_fill_price,
+                current_price=execution_result.avg_fill_price,
+                unrealized_pnl=0.0,
+                realized_pnl=0.0,
+                timestamp=time.time()
+            )
+    
+    def _store_trade_advanced(self, order: Order, execution_result, commission: float):
+        """Store trade with advanced execution data."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Create enhanced trades table if it doesn't exist
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS paper_trades_advanced (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    order_id TEXT NOT NULL,
+                    timestamp REAL NOT NULL,
+                    symbol TEXT NOT NULL,
+                    side TEXT NOT NULL,
+                    order_type TEXT NOT NULL,
+                    quantity REAL NOT NULL,
+                    filled_quantity REAL NOT NULL,
+                    avg_fill_price REAL NOT NULL,
+                    commission REAL NOT NULL,
+                    status TEXT NOT NULL,
+                    queue_position INTEGER,
+                    is_toxic_fill BOOLEAN,
+                    latency_ms REAL,
+                    partial_fills_count INTEGER,
+                    execution_timestamp REAL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Store main trade record
+            cursor.execute('''
+                INSERT INTO paper_trades_advanced (
+                    order_id, timestamp, symbol, side, order_type, quantity, 
+                    filled_quantity, avg_fill_price, commission, status,
+                    queue_position, is_toxic_fill, latency_ms, partial_fills_count,
+                    execution_timestamp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                order.order_id,
+                order.timestamp,
+                order.symbol,
+                order.side.value,
+                order.order_type.value,
+                order.quantity,
+                execution_result.filled_quantity,
+                execution_result.avg_fill_price,
+                commission,
+                order.status.value,
+                execution_result.queue_position,
+                execution_result.is_toxic_fill,
+                execution_result.latency_ms,
+                len(execution_result.partial_fills),
+                execution_result.execution_timestamp
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"Failed to store advanced trade data: {e}")
+    
+    def _get_portfolio_for_risk_check(self) -> Dict:
+        """Get portfolio data formatted for risk manager"""
+        try:
+            portfolio_data = {}
+            
+            # Add current positions
+            for symbol, position in self.positions.items():
+                if position.quantity > 0:
+                    current_price = self._get_current_price(symbol) or position.current_price
+                    market_value = position.quantity * current_price
+                    
+                    portfolio_data[symbol] = {
+                        'quantity': position.quantity,
+                        'market_value': market_value,
+                        'side': position.side.value,
+                        'entry_price': position.entry_price,
+                        'current_price': current_price,
+                        'unrealized_pnl': position.unrealized_pnl,
+                        'realized_pnl': position.realized_pnl
+                    }
+            
+            # Add total portfolio value
+            portfolio_data['total_value'] = self._calculate_portfolio_value()
+            
+            return portfolio_data
+            
+        except Exception as e:
+            logger.error(f"Error getting portfolio for risk check: {e}")
+            return {'total_value': self.starting_balance}
     
     def _execute_buy(self, order: Order, execution_price: float, commission: float):
         """Execute a buy order."""

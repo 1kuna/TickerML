@@ -418,7 +418,7 @@ def calculate_and_scale_features(df_ohlcv, scaler, expected_feature_columns):
     final_features_df = calculated_ta_features[expected_feature_columns].copy()
     
     # Fill NaNs: ffill and bfill for internal NaNs, then 0 for any remaining (e.g., at the very start)
-    final_features_df = final_features_df.fillna(method='ffill').fillna(method='bfill').fillna(0.0)
+    final_features_df = final_features_df.ffill().bfill().fillna(0.0)
     
     # Replace any infinities with 0 as well (e.g. from division by zero if a rolling window had all same values for min/max)
     final_features_df.replace([np.inf, -np.inf], 0.0, inplace=True)
