@@ -1,0 +1,212 @@
+# Model Configuration for TickerML
+# Decision Transformer and RL Training Parameters
+
+decision_transformer:
+  # Model architecture
+  d_model: 128
+  n_heads: 4
+  n_layers: 6
+  d_ff: 512
+  dropout: 0.1
+  
+  # Sequence parameters
+  max_seq_length: 60    # 60 minutes of market data
+  state_dim: 32         # Number of input features
+  action_dim: 3         # buy, sell, hold
+  
+  # Training parameters
+  learning_rate: 1e-4
+  weight_decay: 1e-5
+  use_bf16: true        # BF16 mixed precision (NOT FP16)
+  batch_size: 32
+  max_epochs: 100
+  early_stopping_patience: 10
+  
+  # Decision Transformer specific
+  return_conditioning: true
+  max_return: 1.0
+  return_scale: 100.0
+  
+  # Frozen backbone configuration
+  freeze_backbone: true
+  trainable_layers: 2   # Only train last 2 layers
+  
+  # Multi-task loss weights
+  loss_weights:
+    action: 1.0
+    position: 0.5
+    risk: 0.3
+    value: 0.2
+
+offline_rl:
+  # Data quarantine (CRITICAL)
+  quarantine_days: 30   # NEVER train on data from last 30 days
+  
+  # Cross-validation
+  cv_folds: 5
+  purged_cv: true       # Combinatorial purged cross-validation
+  
+  # Experience replay
+  buffer_size: 100000
+  min_buffer_size: 10000
+  
+  # Reward shaping
+  reward_config:
+    return_weight: 1.0
+    risk_penalty: -0.5
+    drawdown_penalty: -1.0
+    sharpe_bonus: 0.3
+    transaction_cost: -0.001  # 0.1% transaction cost
+  
+  # Training schedule
+  update_frequency: 1000  # Steps between model updates
+  target_update_freq: 5000  # Steps between target network updates
+
+feature_engineering:
+  # Microstructure features
+  orderbook_levels: 10    # Top N levels for imbalance calculation
+  trade_window_minutes: 5 # Window for trade flow analysis
+  vwap_window_minutes: 15 # VWAP calculation window
+  
+  # Technical indicators
+  indicators:
+    sma_periods: [5, 10, 20, 50]
+    ema_periods: [12, 26]
+    rsi_period: 14
+    macd_fast: 12
+    macd_slow: 26
+    macd_signal: 9
+    bb_period: 20
+    bb_std: 2
+    stoch_k: 14
+    stoch_d: 3
+    williams_r: 14
+    atr_period: 14
+    cci_period: 20
+    mfi_period: 14
+    roc_period: 10
+  
+  # Volatility regimes
+  volatility_thresholds:
+    low: 0.01     # 1% daily volatility
+    normal: 0.03  # 3% daily volatility
+    high: 0.05    # 5% daily volatility
+    extreme: 0.10 # 10% daily volatility
+
+model_refresh:
+  # Weekly updates (CRITICAL for crypto)
+  weekly_update:
+    enabled: true
+    day_of_week: 1  # Monday
+    hour: 2         # 2 AM
+    layers_to_update: 2  # Only update last 2 layers
+  
+  # Monthly full retraining
+  monthly_update:
+    enabled: true
+    day_of_month: 1  # First day of month
+    hour: 1          # 1 AM
+    full_retrain: true
+    backup_previous: true
+  
+  # Performance thresholds for emergency updates
+  emergency_update:
+    sharpe_threshold: -0.5   # Trigger if Sharpe < -0.5
+    drawdown_threshold: 0.15 # Trigger if drawdown > 15%
+    lookback_days: 7         # Evaluate over last 7 days
+
+inference:
+  # Model paths
+  model_path: "models/checkpoints/decision_transformer_latest.pt"
+  onnx_path: "models/onnx/decision_transformer_quantized.onnx"
+  
+  # Inference settings
+  use_onnx: true        # Use quantized ONNX for speed
+  device: "cuda"        # Use GPU if available
+  max_batch_size: 1     # Real-time inference
+  
+  # Confidence thresholds
+  confidence_thresholds:
+    min_confidence: 0.6   # Minimum confidence to act
+    high_confidence: 0.8  # High confidence threshold
+    max_position_size: 0.05  # 5% max position size
+  
+  # Feature preprocessing
+  feature_scaling: "robust"  # Use robust scaler for outliers
+  outlier_threshold: 3.0     # Z-score threshold for outlier detection
+
+training:
+  # Data loading
+  data_loader:
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true
+    shuffle: true
+  
+  # Optimization
+  optimizer: "adamw"
+  scheduler: "cosine"
+  warmup_epochs: 5
+  
+  # Gradient clipping
+  max_grad_norm: 1.0
+  
+  # Checkpointing
+  save_frequency: 1000  # Save every N steps
+  keep_best_n: 5        # Keep top 5 checkpoints
+  
+  # Validation
+  val_frequency: 500    # Validate every N steps
+  val_metric: "sharpe_ratio"  # Primary validation metric
+  
+  # Mixed precision
+  use_amp: true
+  amp_dtype: "bfloat16"  # Use BF16, not FP16
+
+gpu_optimization:
+  # RTX 4090 specific settings
+  device: "cuda"
+  memory_fraction: 0.8  # Use 80% of 24GB VRAM
+  
+  # NCCL settings for stability
+  nccl_p2p_disable: true
+  
+  # Compilation optimizations
+  torch_compile: true
+  compile_mode: "reduce-overhead"
+  
+  # Memory management
+  empty_cache_frequency: 100  # Clear cache every N steps
+  max_split_size_mb: 128      # Limit memory fragmentation
+
+paths:
+  # Model directories
+  checkpoints_dir: "models/checkpoints"
+  onnx_dir: "models/onnx"
+  logs_dir: "logs/training"
+  
+  # Data directories
+  features_dir: "data/features"
+  sequences_dir: "data/sequences"
+  
+  # Backup directories
+  backup_dir: "backups/models"
+
+logging:
+  level: "INFO"
+  log_file: "logs/model_training.log"
+  tensorboard_dir: "logs/tensorboard"
+  
+  # Metrics to track
+  metrics:
+    - "loss/total"
+    - "loss/action"
+    - "loss/position"
+    - "loss/risk"
+    - "loss/value"
+    - "accuracy/action"
+    - "sharpe_ratio"
+    - "max_drawdown"
+    - "win_rate"
+    - "learning_rate"
+    - "gpu_memory_mb"

@@ -1,0 +1,352 @@
+# Monitoring Configuration for TickerML
+# Production monitoring, alerts, and dashboards
+
+system_monitoring:
+  # Health check intervals
+  health_check_interval: 30  # seconds
+  
+  # Resource monitoring
+  cpu_threshold: 80          # % CPU usage alert
+  memory_threshold: 85       # % Memory usage alert
+  disk_threshold: 90         # % Disk usage alert
+  gpu_memory_threshold: 90   # % GPU memory alert
+  
+  # Network monitoring
+  latency_threshold: 500     # milliseconds
+  packet_loss_threshold: 1   # % packet loss
+  
+  # Process monitoring
+  processes_to_monitor:
+    - "orderbook_producer"
+    - "trade_producer"
+    - "news_producer"
+    - "feature_consumer"
+    - "trading_consumer"
+    - "paper_trader"
+    - "dashboard"
+    - "infer"
+
+kafka_monitoring:
+  # Broker monitoring
+  broker_health_check: 60    # seconds
+  
+  # Consumer lag monitoring
+  consumer_lag_thresholds:
+    warning: 1000            # messages behind
+    critical: 5000           # messages behind
+  
+  # Topic monitoring
+  topics_to_monitor:
+    - "crypto-orderbooks"
+    - "crypto-trades"
+    - "crypto-news"
+    - "crypto-features"
+    - "trading-signals"
+  
+  # Partition monitoring
+  partition_balance_threshold: 0.2  # Imbalance ratio
+  
+  # Throughput monitoring
+  throughput_thresholds:
+    min_messages_per_second: 10
+    max_messages_per_second: 10000
+
+database_monitoring:
+  # Connection monitoring
+  connection_pool_threshold: 80  # % pool utilization
+  
+  # Query performance
+  slow_query_threshold: 1000     # milliseconds
+  
+  # TimescaleDB specific
+  hypertable_monitoring:
+    chunk_size_threshold: 100    # MB per chunk
+    compression_ratio_min: 2.0   # Minimum compression ratio
+    retention_policy_check: 3600 # seconds
+  
+  # Disk usage by table
+  table_size_thresholds:
+    ohlcv: 10                    # GB
+    order_books: 50              # GB
+    trades: 20                   # GB
+    portfolio_state: 1           # GB
+
+trading_monitoring:
+  # Portfolio monitoring
+  portfolio_thresholds:
+    max_drawdown: 0.25           # 25% maximum drawdown
+    min_sharpe_ratio: -0.5       # Minimum acceptable Sharpe
+    min_win_rate: 0.35           # 35% minimum win rate
+    max_correlation: 0.8         # Maximum position correlation
+  
+  # Risk monitoring
+  risk_alerts:
+    position_size_exceeded: 0.05  # 5% position size limit
+    daily_loss_limit: 0.05        # 5% daily loss limit
+    volatility_spike: 3.0         # 3x normal volatility
+    liquidity_drop: 0.5           # 50% liquidity reduction
+  
+  # Performance monitoring
+  performance_windows:
+    realtime: 300                 # 5 minutes
+    short_term: 3600              # 1 hour
+    daily: 86400                  # 24 hours
+    weekly: 604800                # 7 days
+  
+  # Model monitoring
+  model_performance:
+    accuracy_threshold: 0.55      # Minimum prediction accuracy
+    confidence_threshold: 0.6     # Minimum average confidence
+    prediction_latency: 100       # Maximum prediction time (ms)
+
+alerts:
+  # Alert channels
+  channels:
+    email:
+      enabled: true
+      smtp_server: "smtp.gmail.com"
+      smtp_port: 587
+      recipients:
+        - "alerts@tickerml.local"
+    
+    slack:
+      enabled: false
+      webhook_url: ""
+      channel: "#trading-alerts"
+    
+    discord:
+      enabled: false
+      webhook_url: ""
+    
+    log_file:
+      enabled: true
+      file: "logs/alerts.log"
+  
+  # Alert severity levels
+  severity_levels:
+    info:
+      cooldown: 300              # 5 minutes between similar alerts
+    warning:
+      cooldown: 180              # 3 minutes between similar alerts
+    critical:
+      cooldown: 60               # 1 minute between similar alerts
+    emergency:
+      cooldown: 0                # No cooldown for emergencies
+
+  # Specific alert rules
+  rules:
+    system_down:
+      severity: "emergency"
+      message: "Critical system component is down"
+      auto_restart: true
+    
+    high_drawdown:
+      severity: "critical"
+      message: "Portfolio drawdown exceeded {threshold}%"
+      auto_action: "reduce_positions"
+    
+    model_degradation:
+      severity: "warning"
+      message: "Model performance below threshold"
+      auto_action: "notify_only"
+    
+    data_gap:
+      severity: "warning"
+      message: "Data collection gap detected"
+      auto_action: "restart_collector"
+    
+    kafka_lag:
+      severity: "warning"
+      message: "Kafka consumer lag: {lag} messages"
+      auto_action: "scale_consumers"
+
+dashboards:
+  # Real-time dashboard
+  realtime:
+    refresh_interval: 5          # seconds
+    components:
+      - "live_prices"
+      - "portfolio_value"
+      - "active_positions"
+      - "recent_trades"
+      - "order_book_snapshot"
+      - "news_sentiment"
+      - "system_health"
+  
+  # Trading dashboard
+  trading:
+    refresh_interval: 30         # seconds
+    components:
+      - "portfolio_performance"
+      - "trading_signals"
+      - "risk_metrics"
+      - "correlation_matrix"
+      - "drawdown_chart"
+      - "win_loss_analysis"
+  
+  # System dashboard
+  system:
+    refresh_interval: 60         # seconds
+    components:
+      - "cpu_memory_usage"
+      - "disk_usage"
+      - "network_stats"
+      - "kafka_metrics"
+      - "database_stats"
+      - "process_status"
+  
+  # Model dashboard
+  model:
+    refresh_interval: 300        # seconds
+    components:
+      - "prediction_accuracy"
+      - "feature_importance"
+      - "model_latency"
+      - "training_metrics"
+      - "attention_weights"
+
+logging:
+  # Log levels by component
+  levels:
+    root: "INFO"
+    trading: "INFO"
+    kafka: "WARNING"
+    database: "INFO"
+    model: "DEBUG"
+  
+  # Log rotation
+  rotation:
+    max_file_size: "100MB"
+    backup_count: 10
+    compress_old: true
+  
+  # Log aggregation
+  aggregation:
+    enabled: true
+    batch_size: 1000
+    flush_interval: 60           # seconds
+  
+  # Structured logging
+  structured:
+    enabled: true
+    format: "json"
+    include_metadata: true
+
+metrics:
+  # Metrics collection
+  collection_interval: 30        # seconds
+  retention_days: 30             # Keep metrics for 30 days
+  
+  # Metrics storage
+  storage:
+    backend: "prometheus"        # or "influxdb"
+    endpoint: "http://localhost:9090"
+  
+  # Custom metrics
+  custom_metrics:
+    # Trading metrics
+    - name: "portfolio_value_usd"
+      type: "gauge"
+      description: "Current portfolio value in USD"
+    
+    - name: "active_positions_count"
+      type: "gauge"
+      description: "Number of active positions"
+    
+    - name: "trades_executed_total"
+      type: "counter"
+      description: "Total number of trades executed"
+    
+    - name: "prediction_latency_ms"
+      type: "histogram"
+      description: "Model prediction latency in milliseconds"
+    
+    - name: "sharpe_ratio"
+      type: "gauge"
+      description: "Portfolio Sharpe ratio"
+    
+    - name: "max_drawdown_pct"
+      type: "gauge"
+      description: "Maximum drawdown percentage"
+    
+    # System metrics
+    - name: "kafka_consumer_lag"
+      type: "gauge"
+      description: "Kafka consumer lag by topic"
+      labels: ["topic", "consumer_group"]
+    
+    - name: "order_book_updates_total"
+      type: "counter"
+      description: "Total order book updates processed"
+      labels: ["exchange", "symbol"]
+    
+    - name: "news_articles_processed_total"
+      type: "counter"
+      description: "Total news articles processed"
+    
+    - name: "model_inference_total"
+      type: "counter"
+      description: "Total model inferences"
+      labels: ["model_version", "outcome"]
+
+performance_monitoring:
+  # Latency monitoring
+  latency_targets:
+    order_book_processing: 50    # ms
+    trade_processing: 10         # ms
+    feature_calculation: 100     # ms
+    model_inference: 50          # ms
+    trade_execution: 200         # ms
+  
+  # Throughput monitoring
+  throughput_targets:
+    order_book_updates: 100      # per second
+    trades_processed: 50         # per second
+    features_generated: 10       # per second
+    predictions_made: 5          # per second
+  
+  # Memory usage monitoring
+  memory_monitoring:
+    feature_buffer_size: "100MB"
+    model_memory_usage: "2GB"
+    cache_memory_limit: "500MB"
+
+error_tracking:
+  # Error rate thresholds
+  error_rates:
+    api_errors: 0.05             # 5% error rate
+    model_errors: 0.01           # 1% error rate
+    database_errors: 0.02        # 2% error rate
+  
+  # Error categorization
+  categories:
+    - "connection_errors"
+    - "validation_errors"
+    - "timeout_errors"
+    - "model_errors"
+    - "data_quality_errors"
+  
+  # Error reporting
+  reporting:
+    aggregate_interval: 300      # 5 minutes
+    detailed_errors: true
+    stack_traces: true
+
+compliance:
+  # Audit logging
+  audit:
+    enabled: true
+    log_file: "logs/audit.log"
+    events:
+      - "trade_execution"
+      - "position_changes"
+      - "risk_limit_breaches"
+      - "model_updates"
+      - "configuration_changes"
+  
+  # Data retention
+  retention:
+    raw_data: 7                  # days
+    aggregated_data: 30          # days
+    audit_logs: 365              # days
+    model_history: 90            # days
