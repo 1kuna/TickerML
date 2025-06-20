@@ -1,0 +1,264 @@
+# Risk Management Configuration for TickerML Trading Bot
+# CRITICAL: These limits protect against catastrophic losses
+
+# === Portfolio Risk Limits ===
+portfolio:
+  # Overall Portfolio Constraints
+  max_drawdown: 0.25           # Maximum 25% portfolio drawdown
+  max_daily_loss: 0.05         # Maximum 5% loss per day
+  max_weekly_loss: 0.15        # Maximum 15% loss per week
+  
+  # Position Sizing Constraints
+  max_position_size: 0.25      # Maximum 25% of portfolio per position
+  max_total_exposure: 0.95     # Maximum 95% of portfolio exposed
+  max_leverage: 1.0            # No leverage (spot trading only)
+  
+  # Concentration Limits
+  max_single_asset: 0.40       # Maximum 40% in any single asset
+  max_correlated_positions: 0.60  # Maximum 60% in correlated positions (>0.8 correlation)
+  
+  # Liquidity Requirements
+  min_cash_reserve: 0.10       # Minimum 10% cash reserve
+  emergency_cash_reserve: 0.05 # Emergency 5% untouchable cash
+
+# === Position Sizing Strategy ===
+position_sizing:
+  # Kelly Criterion Configuration
+  kelly:
+    enabled: true
+    fraction: 0.25             # Fractional Kelly (NEVER use full Kelly - too aggressive)
+    max_kelly_size: 0.15       # Cap Kelly sizing at 15% regardless of calculation
+    min_edge_required: 0.02    # Minimum 2% edge required for position
+    
+  # Base Position Sizing
+  base_size: 0.02              # Base 2% position size for all trades
+  min_trade_size: 10           # Minimum $10 trade size (avoid dust)
+  max_trade_size: 2500         # Maximum $2500 trade size
+  
+  # Dynamic Sizing Factors
+  volatility_adjustment: true   # Reduce size during high volatility
+  confidence_scaling: true     # Scale size based on model confidence
+  recent_performance_factor: true  # Reduce size after losses
+
+# === Stop Loss & Take Profit ===
+stop_loss:
+  # Stop Loss Configuration
+  enabled: true
+  default_stop_pct: 0.02       # Default 2% stop loss
+  max_stop_pct: 0.05           # Maximum 5% stop loss
+  trailing_stop: true          # Enable trailing stops
+  trailing_distance_pct: 0.015 # 1.5% trailing distance
+  
+  # Time-based Stops
+  max_hold_time_hours: 24      # Maximum 24 hour hold time
+  overnight_stop_pct: 0.01     # Tighter 1% stop for overnight positions
+  
+take_profit:
+  # Take Profit Configuration
+  enabled: true
+  default_target_pct: 0.03     # Default 3% take profit (1.5:1 risk/reward)
+  max_target_pct: 0.10         # Maximum 10% take profit
+  partial_profit_levels: [0.015, 0.025]  # Take partial profits at 1.5% and 2.5%
+  partial_profit_size: 0.50    # Sell 50% at each partial level
+
+# === Correlation Risk Management ===
+correlation:
+  # Correlation Monitoring
+  enabled: true
+  max_correlation: 0.8         # Maximum 0.8 correlation between positions
+  correlation_window_days: 30  # 30-day rolling correlation window
+  
+  # Position Limits by Correlation
+  correlation_limits:
+    high_correlation: 0.30     # Max 30% in highly correlated positions (>0.8)
+    medium_correlation: 0.50   # Max 50% in medium correlated positions (0.5-0.8)
+    
+  # Sector/Theme Limits
+  crypto_sectors:
+    bitcoin_related: 0.50      # Max 50% in Bitcoin and Bitcoin-related assets
+    ethereum_related: 0.40     # Max 40% in Ethereum and ERC-20 tokens
+    defi_tokens: 0.30          # Max 30% in DeFi tokens
+    meme_coins: 0.10           # Max 10% in meme coins (high risk)
+
+# === Volatility-Based Risk Controls ===
+volatility:
+  # Volatility Monitoring
+  enabled: true
+  measurement_window_hours: 24  # 24-hour volatility measurement
+  
+  # Volatility Thresholds
+  low_volatility_threshold: 0.02   # Below 2% daily volatility
+  medium_volatility_threshold: 0.05 # 2-5% daily volatility
+  high_volatility_threshold: 0.10   # Above 10% daily volatility
+  
+  # Position Size Adjustments
+  volatility_adjustments:
+    low_volatility: 1.2        # Increase position size by 20%
+    medium_volatility: 1.0     # Normal position size
+    high_volatility: 0.6       # Reduce position size by 40%
+    extreme_volatility: 0.3    # Reduce position size by 70%
+  
+  # Volatility-based Stops
+  dynamic_stops:
+    enabled: true
+    volatility_multiplier: 1.5  # Stop = 1.5x recent volatility
+    min_stop_pct: 0.01         # Minimum 1% stop
+    max_stop_pct: 0.05         # Maximum 5% stop
+
+# === Circuit Breakers ===
+circuit_breakers:
+  # Portfolio-level Circuit Breakers
+  portfolio_breakers:
+    daily_loss_breaker: 0.03   # Stop all trading if daily loss > 3%
+    drawdown_breaker: 0.15     # Stop all trading if drawdown > 15%
+    consecutive_losses: 5      # Stop after 5 consecutive losing trades
+    
+  # Market-level Circuit Breakers
+  market_breakers:
+    extreme_volatility: 0.20   # Stop if any asset moves >20% in 1 hour
+    low_liquidity: 1000        # Stop if order book depth < $1000
+    spread_threshold: 0.01     # Stop if bid-ask spread > 1%
+    
+  # System-level Circuit Breakers
+  system_breakers:
+    api_error_rate: 0.10       # Stop if API error rate > 10%
+    latency_threshold_ms: 5000 # Stop if latency > 5 seconds
+    model_confidence: 0.30     # Stop if model confidence < 30%
+
+# === Funding Rate Risk (Perpetuals) ===
+funding_rates:
+  # Funding Rate Monitoring
+  enabled: true
+  max_funding_rate: 0.01       # Maximum 1% funding rate (8-hour)
+  funding_cost_limit_daily: 0.005  # Max 0.5% daily funding cost
+  
+  # Position Timing
+  avoid_funding_minutes: 10    # Close positions 10 min before funding
+  funding_arbitrage: false     # Disable funding arbitrage (too risky for retail)
+  
+  # Cost Calculation
+  include_funding_in_pnl: true # Include funding costs in P&L calculation
+  funding_alert_threshold: 0.005  # Alert if funding > 0.5%
+
+# === Model Confidence Thresholds ===
+model_confidence:
+  # Confidence-based Position Sizing
+  enabled: true
+  
+  # Confidence Thresholds
+  thresholds:
+    no_trade: 0.50             # No trade if confidence < 50%
+    small_position: 0.65       # Small position (50% of normal) if confidence 50-65%
+    normal_position: 0.75      # Normal position if confidence 65-75%
+    large_position: 0.85       # Large position (150% of normal) if confidence > 85%
+    
+  # Confidence-based Adjustments
+  adjustments:
+    position_multiplier:
+      low_confidence: 0.5      # 50% of normal size
+      medium_confidence: 1.0   # Normal size
+      high_confidence: 1.5     # 150% of normal size
+      
+    stop_loss_adjustment:
+      low_confidence: 0.8      # Tighter stops for low confidence
+      medium_confidence: 1.0   # Normal stops
+      high_confidence: 1.2     # Wider stops for high confidence
+
+# === Time-based Risk Controls ===
+time_limits:
+  # Trading Hours (24/7 for crypto, but can limit for testing)
+  trading_hours:
+    enabled: false             # Disable time restrictions for crypto
+    start_hour: 9              # 9 AM
+    end_hour: 16               # 4 PM
+    timezone: "America/New_York"
+    
+  # Position Hold Times
+  max_position_duration:
+    short_term: 4              # Maximum 4 hours for short-term trades
+    medium_term: 24            # Maximum 24 hours for medium-term trades
+    long_term: 168             # Maximum 1 week for long-term trades
+    
+  # Cooling Off Periods
+  cooling_off:
+    after_loss: 300            # 5 minute cool-off after loss
+    after_circuit_breaker: 3600 # 1 hour cool-off after circuit breaker
+    after_api_error: 60        # 1 minute cool-off after API error
+
+# === Real-time Monitoring ===
+monitoring:
+  # Risk Metrics to Track
+  metrics:
+    - current_drawdown
+    - daily_pnl
+    - position_concentration
+    - correlation_exposure
+    - volatility_adjusted_exposure
+    - funding_costs
+    - model_confidence_average
+    - stop_loss_distances
+    
+  # Alert Thresholds
+  alerts:
+    drawdown_warning: 0.10     # Warn at 10% drawdown
+    concentration_warning: 0.30 # Warn at 30% concentration
+    correlation_warning: 0.70  # Warn at 70% correlation
+    low_confidence_warning: 0.40 # Warn at 40% confidence
+    
+  # Monitoring Frequency
+  check_frequency_seconds: 30  # Check risk metrics every 30 seconds
+  
+# === Emergency Procedures ===
+emergency:
+  # Emergency Actions
+  actions:
+    close_all_positions: true  # Can close all positions in emergency
+    disable_new_trades: true   # Can disable new trades
+    switch_to_cash: true       # Can liquidate to cash
+    
+  # Emergency Triggers
+  triggers:
+    flash_crash: 0.15          # >15% drop in 5 minutes
+    system_failure: true       # Critical system component failure
+    external_event: true       # Manual emergency trigger
+    
+  # Contact Information
+  emergency_contacts:
+    - "admin@tickerml.com"
+    - "+1-555-123-4567"
+    
+# === Backtesting Risk Validation ===
+backtesting:
+  # Risk Validation in Backtests
+  validate_risk_metrics: true
+  
+  # Stress Testing
+  stress_scenarios:
+    - "2008_financial_crisis"
+    - "covid_crash_2020"
+    - "crypto_winter_2022"
+    - "flash_crash_scenarios"
+    
+  # Risk-adjusted Performance Metrics
+  required_metrics:
+    - sharpe_ratio
+    - sortino_ratio
+    - maximum_drawdown
+    - calmar_ratio
+    - value_at_risk_95
+    - conditional_var_95
+    
+# === Compliance & Reporting ===
+compliance:
+  # Risk Reporting
+  daily_risk_report: true
+  weekly_risk_summary: true
+  monthly_risk_review: true
+  
+  # Audit Trail
+  log_all_risk_decisions: true
+  retain_logs_days: 365
+  
+  # Documentation
+  document_risk_overrides: true
+  require_justification: true

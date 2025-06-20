@@ -144,7 +144,7 @@ except Exception as e:
 import ta
 from ta.utils import dropna
 from ta.volatility import BollingerBands, average_true_range
-from ta.momentum import RSIIndicator, StochOscillator, WilliamsRIndicator, ROCIndicator # Adjusted based on pc/features.py actual usage: rsi, stoch, stoch_signal, williams_r, roc
+from ta.momentum import RSIIndicator, StochasticOscillator, WilliamsRIndicator, ROCIndicator # Adjusted based on pc/features.py actual usage: rsi, stoch, stoch_signal, williams_r, roc
 from ta.volume import MFIIndicator # money_flow_index
 from ta.trend import MACD, SMAIndicator, EMAIndicator, CCIIndicator # macd, macd_signal, macd_diff, sma, ema, cci
 
@@ -343,9 +343,9 @@ def calculate_and_scale_features(df_ohlcv, scaler, expected_feature_columns):
 
             # Stochastic Oscillator
             elif col_name == 'stoch_k':
-                calculated_ta_features[col_name] = StochOscillator(features_df['high'], features_df['low'], features_df['close']).stoch()
+                calculated_ta_features[col_name] = StochasticOscillator(features_df['high'], features_df['low'], features_df['close']).stoch()
             elif col_name == 'stoch_d':
-                calculated_ta_features[col_name] = StochOscillator(features_df['high'], features_df['low'], features_df['close']).stoch_signal()
+                calculated_ta_features[col_name] = StochasticOscillator(features_df['high'], features_df['low'], features_df['close']).stoch_signal()
             
             # Williams %R
             elif col_name == 'williams_r':

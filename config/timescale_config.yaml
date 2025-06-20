@@ -1,0 +1,274 @@
+# TimescaleDB Configuration for TickerML Trading Bot
+# Production-grade time-series database for market data
+
+# === Database Connection ===
+connection:
+  host: localhost
+  port: 5432
+  database: tickerml
+  username: tickerml_user
+  password_env_var: TIMESCALE_PASSWORD  # Reference to environment variable
+  
+  # Connection Pool Settings
+  pool:
+    min_connections: 5
+    max_connections: 20
+    connection_timeout: 30
+    idle_timeout: 600
+    
+  # SSL Configuration (for production)
+  ssl:
+    enabled: false  # Enable for production
+    mode: require
+    cert_file: null
+    key_file: null
+    ca_file: null
+
+# === Schema Configuration ===
+schema:
+  # Main schema for trading data
+  main_schema: public
+  
+  # Hypertables for time-series optimization
+  hypertables:
+    
+    # Order Book Data (L2/L3 market depth)
+    order_books:
+      table_name: order_books
+      time_column: timestamp
+      chunk_time_interval: "1 hour"
+      compress_after: "7 days"
+      retention_policy: "30 days"
+      columns:
+        timestamp: "TIMESTAMPTZ NOT NULL"
+        exchange: "VARCHAR(20) NOT NULL"
+        symbol: "VARCHAR(20) NOT NULL"
+        bids: "JSONB NOT NULL"
+        asks: "JSONB NOT NULL"
+        mid_price: "NUMERIC(20,8)"
+        spread: "NUMERIC(20,8)"
+        spread_bps: "NUMERIC(10,4)"
+        depth_imbalance: "NUMERIC(10,6)"
+      indexes:
+        - "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ob_exchange_symbol_time ON order_books(exchange, symbol, timestamp DESC)"
+        - "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ob_symbol_time ON order_books(symbol, timestamp DESC)"
+    
+    # Individual Trade Data
+    trades:
+      table_name: trades  
+      time_column: timestamp
+      chunk_time_interval: "1 hour"
+      compress_after: "7 days"
+      retention_policy: "30 days"
+      columns:
+        timestamp: "TIMESTAMPTZ NOT NULL"
+        exchange: "VARCHAR(20) NOT NULL"
+        symbol: "VARCHAR(20) NOT NULL"
+        trade_id: "BIGINT"
+        price: "NUMERIC(20,8) NOT NULL"
+        quantity: "NUMERIC(20,8) NOT NULL"
+        side: "VARCHAR(4) NOT NULL"  # buy/sell
+        is_market_maker: "BOOLEAN"
+      indexes:
+        - "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_trades_exchange_symbol_time ON trades(exchange, symbol, timestamp DESC)"
+        - "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_trades_symbol_time ON trades(symbol, timestamp DESC)"
+    
+    # OHLCV Candle Data (multiple timeframes)
+    ohlcv:
+      table_name: ohlcv
+      time_column: timestamp
+      chunk_time_interval: "24 hours"
+      compress_after: "7 days"
+      retention_policy: "1 year"
+      columns:
+        timestamp: "TIMESTAMPTZ NOT NULL"
+        exchange: "VARCHAR(20) NOT NULL"
+        symbol: "VARCHAR(20) NOT NULL"
+        timeframe: "VARCHAR(10) NOT NULL"  # 1m, 5m, 15m, 1h, etc.
+        open: "NUMERIC(20,8) NOT NULL"
+        high: "NUMERIC(20,8) NOT NULL"
+        low: "NUMERIC(20,8) NOT NULL"
+        close: "NUMERIC(20,8) NOT NULL"
+        volume: "NUMERIC(20,8) NOT NULL"
+        trades_count: "INTEGER"
+        vwap: "NUMERIC(20,8)"
+      indexes:
+        - "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ohlcv_symbol_timeframe_time ON ohlcv(symbol, timeframe, timestamp DESC)"
+        - "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ohlcv_exchange_symbol_time ON ohlcv(exchange, symbol, timestamp DESC)"
+    
+    # Portfolio State Tracking
+    portfolio_state:
+      table_name: portfolio_state
+      time_column: timestamp
+      chunk_time_interval: "24 hours"
+      compress_after: "30 days"
+      retention_policy: "1 year"
+      columns:
+        timestamp: "TIMESTAMPTZ NOT NULL"
+        cash_balance: "NUMERIC(20,8) NOT NULL"
+        total_value: "NUMERIC(20,8) NOT NULL"
+        positions: "JSONB NOT NULL"
+        daily_pnl: "NUMERIC(20,8)"
+        total_pnl: "NUMERIC(20,8)"
+        max_drawdown: "NUMERIC(10,4)"
+        sharpe_ratio: "NUMERIC(10,6)"
+        win_rate: "NUMERIC(10,4)"
+      indexes:
+        - "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_portfolio_time ON portfolio_state(timestamp DESC)"
+    
+    # Trade Execution History
+    trade_history:
+      table_name: trade_history
+      time_column: timestamp
+      chunk_time_interval: "24 hours"
+      compress_after: "30 days"
+      retention_policy: "2 years"
+      columns:
+        trade_id: "SERIAL PRIMARY KEY"
+        timestamp: "TIMESTAMPTZ NOT NULL"
+        symbol: "VARCHAR(20) NOT NULL"
+        side: "VARCHAR(10) NOT NULL"  # buy/sell/hold
+        quantity: "NUMERIC(20,8) NOT NULL"
+        price: "NUMERIC(20,8) NOT NULL"
+        commission: "NUMERIC(20,8)"
+        slippage: "NUMERIC(20,8)"
+        execution_latency_ms: "INTEGER"
+        queue_position: "INTEGER"
+        decision_data: "JSONB"  # Why the trade was made
+        pnl: "NUMERIC(20,8)"
+      indexes:
+        - "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_trades_symbol_time ON trade_history(symbol, timestamp DESC)"
+        - "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_trades_time ON trade_history(timestamp DESC)"
+    
+    # Funding Rates (Critical for Perpetuals)
+    funding_rates:
+      table_name: funding_rates
+      time_column: timestamp
+      chunk_time_interval: "24 hours"
+      compress_after: "30 days"
+      retention_policy: "6 months"
+      columns:
+        timestamp: "TIMESTAMPTZ NOT NULL"
+        exchange: "VARCHAR(20) NOT NULL"
+        symbol: "VARCHAR(20) NOT NULL"
+        funding_rate: "NUMERIC(12,8) NOT NULL"
+        funding_time: "TIMESTAMPTZ NOT NULL"
+        next_funding_time: "TIMESTAMPTZ NOT NULL"
+        mark_price: "NUMERIC(20,8)"
+        index_price: "NUMERIC(20,8)"
+      indexes:
+        - "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_funding_exchange_symbol_time ON funding_rates(exchange, symbol, timestamp DESC)"
+
+# === Performance Optimization ===
+performance:
+  # Chunk Management
+  chunk_management:
+    target_chunk_size: "25GB"
+    max_chunks_per_hypertable: 1000
+    
+  # Compression Settings
+  compression:
+    enabled: true
+    compress_orderby: "timestamp DESC"
+    compress_segmentby: "symbol, exchange"
+    
+  # Parallel Processing
+  parallel:
+    max_parallel_workers: 4
+    max_parallel_workers_per_gather: 2
+    
+  # Memory Settings
+  memory:
+    work_mem: "256MB"
+    maintenance_work_mem: "1GB"
+    shared_buffers: "2GB"
+    effective_cache_size: "8GB"
+
+# === Backup & Maintenance ===
+backup:
+  # Automated Backups
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention_days: 7
+  compression: true
+  
+  # Backup Locations
+  local_path: "/var/backups/timescaledb"
+  s3_bucket: null  # Configure for cloud backup
+  
+# === Monitoring & Alerts ===
+monitoring:
+  # Database Health
+  health_checks:
+    enabled: true
+    interval_seconds: 60
+    
+  # Performance Metrics
+  metrics:
+    - connection_count
+    - query_duration
+    - index_usage
+    - table_size
+    - compression_ratio
+    
+  # Alerts
+  alerts:
+    slow_query_threshold_ms: 1000
+    connection_threshold: 80  # Percent of max_connections
+    disk_usage_threshold: 85  # Percent
+    
+# === Data Lifecycle Management ===
+lifecycle:
+  # Automated Data Policies
+  policies:
+    # Compress old data
+    compression:
+      enabled: true
+      compress_after: "7 days"
+      
+    # Drop very old data
+    retention:
+      order_books: "30 days"
+      trades: "30 days"
+      ohlcv: "1 year"
+      portfolio_state: "1 year"
+      trade_history: "2 years"
+      funding_rates: "6 months"
+      
+  # Archive to cold storage
+  archival:
+    enabled: false  # Enable for production
+    archive_after: "6 months"
+    storage_type: "s3"  # s3, gcs, azure
+    
+# === Security Configuration ===
+security:
+  # Row Level Security (RLS)
+  rls:
+    enabled: false  # Enable for multi-tenant setups
+    
+  # Audit Logging
+  audit:
+    enabled: false  # Enable for production
+    log_statements: "mod"  # none, ddl, mod, all
+    
+  # SSL Configuration
+  ssl:
+    enabled: false  # Enable for production
+    cert_file: "/etc/ssl/certs/timescaledb.crt"
+    key_file: "/etc/ssl/private/timescaledb.key"
+
+# === Migration Scripts ===
+migrations:
+  # Scripts to run on database setup
+  init_scripts:
+    - "001_create_hypertables.sql"
+    - "002_create_indexes.sql"
+    - "003_setup_compression.sql"
+    - "004_create_retention_policies.sql"
+    
+  # Data migration from SQLite
+  sqlite_migration:
+    source_db: "data/db/crypto_ohlcv.db"
+    batch_size: 10000
+    parallel_workers: 2

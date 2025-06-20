@@ -1,0 +1,385 @@
+# Multi-Exchange Configuration for TickerML Trading Bot
+# Supports Binance.US, Coinbase Pro, Kraken, and KuCoin
+
+# === Exchange Endpoints & Authentication ===
+exchanges:
+  
+  # Binance.US (Primary Exchange)
+  binance:
+    name: "Binance.US"
+    enabled: true
+    primary: true  # Primary exchange for trading
+    
+    # API Configuration
+    api:
+      base_url: "https://api.binance.us"
+      websocket_url: "wss://stream.binance.us:9443/ws"
+      
+      # Authentication (from environment variables)
+      api_key_env: "BINANCE_API_KEY"
+      secret_env: "BINANCE_SECRET"
+      
+      # Rate Limits (requests per interval)
+      rate_limits:
+        rest_requests_per_minute: 1200
+        websocket_connections: 5
+        websocket_subscriptions: 1024
+        order_rate_per_second: 10
+        
+    # Supported Features
+    features:
+      spot_trading: true
+      margin_trading: false
+      futures_trading: false
+      options_trading: false
+      order_types: ["market", "limit", "stop_loss", "stop_loss_limit", "take_profit", "take_profit_limit"]
+      
+    # Symbols Configuration
+    symbols:
+      - symbol: "BTCUSD"
+        base: "BTC"
+        quote: "USD"
+        status: "TRADING"
+        min_qty: 0.00001
+        max_qty: 9000
+        step_size: 0.00001
+        tick_size: 0.01
+      - symbol: "ETHUSD"
+        base: "ETH"
+        quote: "USD"
+        status: "TRADING"
+        min_qty: 0.0001
+        max_qty: 90000
+        step_size: 0.0001
+        tick_size: 0.01
+        
+    # Fee Structure
+    fees:
+      maker: 0.001  # 0.1%
+      taker: 0.001  # 0.1%
+      withdrawal: {}  # Symbol-specific withdrawal fees
+      
+  # Coinbase Pro (Secondary Exchange)
+  coinbase:
+    name: "Coinbase Pro"
+    enabled: true
+    primary: false
+    
+    # API Configuration
+    api:
+      base_url: "https://api.pro.coinbase.com"
+      websocket_url: "wss://ws-feed.pro.coinbase.com"
+      
+      # Authentication (from environment variables)
+      api_key_env: "COINBASE_API_KEY"
+      secret_env: "COINBASE_SECRET"
+      passphrase_env: "COINBASE_PASSPHRASE"
+      
+      # Rate Limits
+      rate_limits:
+        rest_requests_per_second: 10
+        websocket_connections: 5
+        websocket_subscriptions: 100
+        order_rate_per_second: 5
+        
+    # Supported Features
+    features:
+      spot_trading: true
+      margin_trading: false
+      futures_trading: false
+      options_trading: false
+      order_types: ["market", "limit", "stop"]
+      
+    # Symbols Configuration
+    symbols:
+      - symbol: "BTC-USD"
+        base: "BTC"
+        quote: "USD"
+        status: "online"
+        min_qty: 0.001
+        max_qty: 10000
+        step_size: 0.00000001
+        tick_size: 0.01
+      - symbol: "ETH-USD"
+        base: "ETH"
+        quote: "USD"
+        status: "online"
+        min_qty: 0.01
+        max_qty: 100000
+        step_size: 0.00000001
+        tick_size: 0.01
+        
+    # Fee Structure
+    fees:
+      maker: 0.005  # 0.5%
+      taker: 0.005  # 0.5%
+      withdrawal: {}
+      
+  # Kraken (European Market Access)
+  kraken:
+    name: "Kraken"
+    enabled: false  # Enable when needed
+    primary: false
+    
+    # API Configuration
+    api:
+      base_url: "https://api.kraken.com"
+      websocket_url: "wss://ws.kraken.com"
+      
+      # Authentication (from environment variables)
+      api_key_env: "KRAKEN_API_KEY"
+      secret_env: "KRAKEN_SECRET"
+      
+      # Rate Limits
+      rate_limits:
+        rest_requests_per_minute: 20
+        websocket_connections: 5
+        websocket_subscriptions: 50
+        order_rate_per_second: 1
+        
+    # Supported Features
+    features:
+      spot_trading: true
+      margin_trading: true
+      futures_trading: true
+      options_trading: false
+      order_types: ["market", "limit", "stop-loss", "take-profit"]
+      
+    # Symbols Configuration
+    symbols:
+      - symbol: "XBTUSD"
+        base: "XBT"  # Kraken uses XBT for Bitcoin
+        quote: "USD"
+        status: "online"
+        min_qty: 0.0001
+        max_qty: 1000
+        step_size: 0.00000001
+        tick_size: 0.1
+      - symbol: "ETHUSD"
+        base: "ETH"
+        quote: "USD"
+        status: "online"
+        min_qty: 0.001
+        max_qty: 10000
+        step_size: 0.00000001
+        tick_size: 0.01
+        
+    # Fee Structure
+    fees:
+      maker: 0.0016  # 0.16%
+      taker: 0.0026  # 0.26%
+      withdrawal: {}
+      
+  # KuCoin (Additional Liquidity)
+  kucoin:
+    name: "KuCoin"
+    enabled: false  # Enable when needed
+    primary: false
+    
+    # API Configuration
+    api:
+      base_url: "https://api.kucoin.com"
+      websocket_url: "wss://ws-api.kucoin.com/endpoint"
+      
+      # Authentication (from environment variables)
+      api_key_env: "KUCOIN_API_KEY"
+      secret_env: "KUCOIN_SECRET"
+      passphrase_env: "KUCOIN_PASSPHRASE"
+      
+      # Rate Limits
+      rate_limits:
+        rest_requests_per_minute: 3000
+        websocket_connections: 5
+        websocket_subscriptions: 300
+        order_rate_per_second: 45
+        
+    # Supported Features
+    features:
+      spot_trading: true
+      margin_trading: true
+      futures_trading: true
+      options_trading: false
+      order_types: ["market", "limit", "stop"]
+      
+    # Symbols Configuration
+    symbols:
+      - symbol: "BTC-USDT"
+        base: "BTC"
+        quote: "USDT"
+        status: "TRADING"
+        min_qty: 0.00001
+        max_qty: 10000
+        step_size: 0.00000001
+        tick_size: 0.1
+      - symbol: "ETH-USDT"
+        base: "ETH"
+        quote: "USDT"
+        status: "TRADING"
+        min_qty: 0.0001
+        max_qty: 100000
+        step_size: 0.0001
+        tick_size: 0.01
+        
+    # Fee Structure
+    fees:
+      maker: 0.001  # 0.1%
+      taker: 0.001  # 0.1%
+      withdrawal: {}
+
+# === Cross-Exchange Configuration ===
+arbitrage:
+  # Arbitrage Detection Settings
+  detection:
+    enabled: true
+    min_spread_bps: 10    # Minimum 10 basis points spread
+    max_spread_bps: 500   # Maximum 50 basis points (likely error)
+    min_volume_usd: 1000  # Minimum $1000 volume on both sides
+    
+  # Execution Settings
+  execution:
+    enabled: false  # Paper trading only initially
+    max_position_usd: 5000  # Maximum $5000 per arbitrage trade
+    timeout_seconds: 30     # Maximum time to complete arbitrage
+    
+  # Symbol Mapping (normalize symbol names across exchanges)
+  symbol_mapping:
+    BTC:
+      binance: "BTCUSD"
+      coinbase: "BTC-USD"
+      kraken: "XBTUSD"
+      kucoin: "BTC-USDT"
+    ETH:
+      binance: "ETHUSD"
+      coinbase: "ETH-USD"
+      kraken: "ETHUSD"
+      kucoin: "ETH-USDT"
+
+# === Data Collection Configuration ===
+data_collection:
+  # Order Book Collection
+  orderbook:
+    enabled: true
+    depth_levels: 20      # Top 20 bid/ask levels
+    update_frequency_ms: 100  # 100ms updates
+    
+    # Exchange-specific settings
+    exchange_settings:
+      binance:
+        stream: "btcusd@depth20@100ms"
+        snapshot_interval: 3600  # Hourly snapshots
+      coinbase:
+        channels: ["level2"]
+        snapshot_interval: 3600
+      kraken:
+        subscription: {"name": "book", "depth": 25}
+        snapshot_interval: 3600
+      kucoin:
+        topic: "/market/level2:BTC-USDT"
+        snapshot_interval: 3600
+        
+  # Trade Data Collection
+  trades:
+    enabled: true
+    max_trades_per_update: 100
+    
+    # Exchange-specific settings
+    exchange_settings:
+      binance:
+        stream: "btcusd@trade"
+      coinbase:
+        channels: ["matches"]
+      kraken:
+        subscription: {"name": "trade"}
+      kucoin:
+        topic: "/market/match:BTC-USDT"
+        
+  # Market Statistics
+  market_stats:
+    enabled: true
+    collection_interval: 60  # Every minute
+    
+    # Statistics to collect
+    metrics:
+      - "24hr_change"
+      - "24hr_volume"
+      - "24hr_high"
+      - "24hr_low"
+      - "bid_ask_spread"
+      - "mid_price"
+      - "last_price"
+
+# === Connection Management ===
+connection:
+  # WebSocket Settings
+  websocket:
+    reconnect_attempts: 5
+    reconnect_delay_ms: 1000
+    ping_interval_seconds: 30
+    pong_timeout_seconds: 10
+    max_reconnect_backoff_ms: 30000
+    
+  # HTTP Settings
+  http:
+    timeout_seconds: 30
+    retry_attempts: 3
+    retry_delay_ms: 1000
+    connection_pool_size: 10
+    
+  # Circuit Breaker
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    timeout_seconds: 60
+    half_open_max_calls: 3
+
+# === Error Handling ===
+error_handling:
+  # Exchange-specific error codes
+  exchange_errors:
+    binance:
+      rate_limit_codes: [-1003, -1015]
+      maintenance_codes: [-1001]
+      insufficient_balance_codes: [-2010]
+    coinbase:
+      rate_limit_codes: ["rate_limit_exceeded"]
+      maintenance_codes: ["system_maintenance"]
+    kraken:
+      rate_limit_codes: ["EGeneral:Too many requests"]
+      maintenance_codes: ["EService:Unavailable"]
+    kucoin:
+      rate_limit_codes: ["429000"]
+      maintenance_codes: ["503000"]
+      
+  # Retry Logic
+  retry:
+    max_attempts: 3
+    backoff_strategy: "exponential"  # linear, exponential
+    base_delay_ms: 1000
+    max_delay_ms: 10000
+    
+  # Fallback Behavior
+  fallback:
+    use_backup_exchange: true
+    data_staleness_threshold_seconds: 300  # 5 minutes
+    disable_trading_on_error: true
+
+# === Monitoring & Alerting ===
+monitoring:
+  # Health Checks
+  health_checks:
+    enabled: true
+    interval_seconds: 60
+    
+  # Performance Metrics
+  metrics:
+    - connection_status
+    - latency_ms
+    - message_rate
+    - error_rate
+    - order_success_rate
+    
+  # Alerts
+  alerts:
+    high_latency_threshold_ms: 1000
+    error_rate_threshold: 0.05  # 5%
+    connection_failure_alert: true

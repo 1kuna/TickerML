@@ -1,0 +1,184 @@
+# Kafka Configuration for TickerML Trading Bot
+# Event-driven architecture for real-time data processing
+
+# === Kafka Cluster Configuration ===
+kafka:
+  # Broker Configuration (single-node for home use)
+  broker: localhost:9092
+  client_id: tickerml-trader
+  
+  # Security (for production - currently disabled for local dev)
+  security:
+    enabled: false
+    protocol: PLAINTEXT  # SASL_SSL for production
+    username: null
+    password: null
+  
+  # Connection Settings
+  connection:
+    timeout_ms: 30000
+    retry_attempts: 3
+    retry_backoff_ms: 1000
+    heartbeat_interval_ms: 3000
+    session_timeout_ms: 30000
+  
+# === Topic Configuration ===
+topics:
+  # Order Book Data Stream
+  orderbooks:
+    name: crypto-orderbooks
+    partitions: 3
+    replication_factor: 1  # Single node cluster
+    cleanup_policy: delete
+    retention_ms: 86400000  # 24 hours
+    compression_type: snappy
+    
+  # Trade Data Stream  
+  trades:
+    name: crypto-trades
+    partitions: 3
+    replication_factor: 1
+    cleanup_policy: delete
+    retention_ms: 86400000  # 24 hours
+    compression_type: snappy
+    
+  # Trading Signals
+  signals:
+    name: trading-signals
+    partitions: 1
+    replication_factor: 1
+    cleanup_policy: delete
+    retention_ms: 604800000  # 7 days
+    compression_type: lz4
+    
+  # Portfolio State Updates
+  portfolio:
+    name: portfolio-updates
+    partitions: 1
+    replication_factor: 1
+    cleanup_policy: compact  # Keep latest state
+    retention_ms: -1  # Infinite retention for state
+    compression_type: lz4
+    
+  # Risk Management Alerts
+  risk_alerts:
+    name: risk-alerts
+    partitions: 1
+    replication_factor: 1
+    cleanup_policy: delete
+    retention_ms: 604800000  # 7 days
+    compression_type: gzip
+
+# === Producer Configuration ===
+producer:
+  # Performance Settings
+  batch_size: 16384
+  linger_ms: 10  # Small delay for batching
+  buffer_memory: 33554432  # 32MB
+  compression_type: snappy
+  
+  # Reliability Settings
+  acks: 1  # Leader acknowledgment (balance of speed/reliability)
+  retries: 3
+  retry_backoff_ms: 100
+  request_timeout_ms: 30000
+  
+  # Idempotence (prevent duplicates)
+  enable_idempotence: true
+  max_in_flight_requests_per_connection: 5
+
+# === Consumer Configuration ===
+consumer:
+  # Consumer Groups
+  group_id: tickerml-consumers
+  auto_offset_reset: latest  # Start from newest messages
+  enable_auto_commit: true
+  auto_commit_interval_ms: 5000
+  
+  # Performance Settings
+  fetch_min_bytes: 1
+  fetch_max_wait_ms: 500
+  max_partition_fetch_bytes: 1048576  # 1MB
+  
+  # Session Management
+  heartbeat_interval_ms: 3000
+  session_timeout_ms: 30000
+  max_poll_interval_ms: 300000  # 5 minutes
+  
+  # Processing Guarantees
+  isolation_level: read_committed
+
+# === Stream Processing Configuration ===
+streaming:
+  # Event Processing
+  processing_guarantee: at_least_once
+  state_dir: /tmp/kafka-streams
+  
+  # Window Configuration
+  window_size_ms: 60000  # 1 minute windows
+  window_grace_ms: 5000  # 5 second grace period
+  
+  # Commit Settings
+  commit_interval_ms: 30000  # 30 seconds
+  cache_max_bytes_buffering: 10485760  # 10MB
+  
+  # Rebalancing
+  rebalance_timeout_ms: 60000
+
+# === Schema Registry (Future Enhancement) ===
+schema_registry:
+  enabled: false  # Enable when adding schema validation
+  url: http://localhost:8081
+  basic_auth:
+    username: null
+    password: null
+
+# === Monitoring & Metrics ===
+monitoring:
+  # JMX Metrics (for Kafka monitoring)
+  jmx:
+    enabled: true
+    port: 9999
+  
+  # Custom Application Metrics
+  metrics:
+    enabled: true
+    interval_ms: 30000
+    topics:
+      - consumer_lag
+      - throughput
+      - error_rate
+      - latency
+
+# === Development/Production Settings ===
+environment:
+  mode: development  # development or production
+  
+  # Development Settings
+  development:
+    auto_create_topics: true
+    log_level: INFO
+    console_logging: true
+    
+  # Production Settings (for future use)
+  production:
+    auto_create_topics: false
+    log_level: WARN
+    console_logging: false
+    ssl_enabled: true
+    monitoring_enabled: true
+
+# === Error Handling ===
+error_handling:
+  # Dead Letter Queue for failed messages
+  dlq:
+    enabled: true
+    topic_suffix: "-dlq"
+    max_retries: 3
+    
+  # Circuit Breaker for external services
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    timeout_ms: 60000
+    half_open_max_calls: 3

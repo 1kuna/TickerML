@@ -355,7 +355,6 @@ def get_accuracy(symbol):
         return jsonify({}), 500
 
 # Create templates directory and HTML template
-@app.before_first_request
 def create_templates():
     """Create templates directory and HTML file"""
     templates_dir = Path(__file__).parent / "templates"
@@ -676,6 +675,9 @@ def create_templates():
     template_file = templates_dir / "dashboard.html"
     with open(template_file, 'w') as f:
         f.write(html_content)
+
+# Create templates on startup
+create_templates()
 
 if __name__ == '__main__':
     app.run(
