@@ -20,7 +20,7 @@ import {
   ConfigFile,
   LogEntry,
   LogStatistics
-} from '@/types';
+} from '../types';
 
 class ApiService {
   private api: AxiosInstance;
@@ -266,6 +266,26 @@ class ApiService {
 
   async getServices(): Promise<any[]> {
     const response = await this.api.get('/system/services');
+    return response.data;
+  }
+
+  async getSystemServices(): Promise<any[]> {
+    const response = await this.api.get('/system/services');
+    return response.data;
+  }
+
+  async getSystemMetrics(): Promise<SystemMetrics> {
+    const response = await this.api.get('/system/metrics');
+    return response.data;
+  }
+
+  async placePaperOrder(orderData: any): Promise<any> {
+    const response = await this.api.post('/trading/paper/order', orderData);
+    return response.data;
+  }
+
+  async updateServiceConfig(serviceName: string, config: any): Promise<any> {
+    const response = await this.api.put(`/system/services/${serviceName}/config`, config);
     return response.data;
   }
 

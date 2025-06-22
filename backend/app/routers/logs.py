@@ -3,7 +3,7 @@ Logs and monitoring router for system log management and analysis
 """
 
 from fastapi import APIRouter, Depends, Query, HTTPException
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from pydantic import BaseModel
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -53,7 +53,7 @@ class LogStatistics(BaseModel):
     entries_by_service: Dict[str, int]
     error_rate: float
     warning_rate: float
-    most_common_errors: List[Dict[str, any]]
+    most_common_errors: List[Dict[str, Any]]
     time_range: Dict[str, datetime]
 
 class AlertRule(BaseModel):

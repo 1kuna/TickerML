@@ -2,25 +2,25 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { ConfigProvider, theme } from 'antd';
-import { store } from '@/store';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { getCurrentUserAsync } from '@/store/slices/authSlice';
-import { websocketService } from '@/services/websocket';
+import { store } from './store';
+import { useAppDispatch, useAppSelector } from './store/hooks';
+import { getCurrentUserAsync } from './store/slices/authSlice';
+import { websocketService } from './services/websocket';
 
 // Components
-import DashboardLayout from '@/components/Layout/DashboardLayout';
-import LoginPage from '@/components/Auth/LoginPage';
-import LoadingScreen from '@/components/Common/LoadingScreen';
+import DashboardLayout from './components/Layout/DashboardLayout';
+import LoginPage from './components/Auth/LoginPage';
+import LoadingScreen from './components/Common/LoadingScreen';
 
 // Pages
-import DashboardOverview from '@/components/Dashboard/DashboardOverview';
-import TradingDashboard from '@/components/Trading/TradingDashboard';
-import PortfolioDashboard from '@/components/Portfolio/PortfolioDashboard';
-import DataCollectionDashboard from '@/components/DataCollection/DataCollectionDashboard';
-import ModelsDashboard from '@/components/Models/ModelsDashboard';
-import SystemDashboard from '@/components/System/SystemDashboard';
-import ConfigurationDashboard from '@/components/Configuration/ConfigurationDashboard';
-import LogsDashboard from '@/components/Logs/LogsDashboard';
+import DashboardOverview from './components/Dashboard/DashboardOverview';
+import TradingDashboard from './components/Trading/TradingDashboard';
+import PortfolioDashboard from './components/Portfolio/PortfolioDashboard';
+import DataCollectionDashboard from './components/DataCollection/DataCollectionDashboard';
+import ModelsDashboard from './components/Models/ModelsDashboard';
+import SystemDashboard from './components/System/SystemDashboard';
+import ConfigurationDashboard from './components/Configuration/ConfigurationDashboard';
+import LogsDashboard from './components/Logs/LogsDashboard';
 
 import './App.css';
 import './styles/themes.css';

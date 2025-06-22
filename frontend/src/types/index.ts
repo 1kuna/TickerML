@@ -84,6 +84,7 @@ export interface PortfolioSnapshot {
   total_return: number;
   max_drawdown: number;
   positions_count: number;
+  total_pnl: number;
 }
 
 export interface Position {
@@ -95,6 +96,7 @@ export interface Position {
   realized_pnl: number;
   position_value: number;
   weight_percent: number;
+  market_value: number;
 }
 
 export interface PerformanceMetrics {
@@ -115,6 +117,8 @@ export interface PerformanceMetrics {
   losing_trades: number;
   avg_trade_duration_hours: number;
   risk_adjusted_return: number;
+  equity_curve: any[];
+  avg_trade_pnl: number;
 }
 
 // Trading Types
@@ -139,10 +143,13 @@ export interface TradingStatus {
   };
 }
 
+export type OrderType = 'market' | 'limit' | 'stop' | 'stop_limit';
+export type OrderSide = 'buy' | 'sell';
+
 export interface OrderRequest {
   symbol: string;
-  side: 'buy' | 'sell';
-  type: 'market' | 'limit';
+  side: OrderSide;
+  type: OrderType;
   quantity: number;
   price?: number;
 }
@@ -150,16 +157,20 @@ export interface OrderRequest {
 // System Types
 export interface SystemMetrics {
   cpu_percent: number;
+  cpu_usage: number;
   memory_percent: number;
+  memory_usage: number;
   memory_available_gb: number;
   memory_total_gb: number;
   disk_percent: number;
+  disk_usage: number;
   disk_free_gb: number;
   gpu_usage?: number;
   gpu_memory_mb?: number;
   network_bytes_sent: number;
   network_bytes_recv: number;
   timestamp: string;
+  cpu_usage_history: any[];
 }
 
 export interface ServiceStatus {
@@ -170,6 +181,24 @@ export interface ServiceStatus {
   memory_mb?: number;
   uptime_seconds?: number;
   last_error?: string;
+}
+
+export interface SystemService {
+  name: string;
+  status: 'running' | 'stopped' | 'error';
+  description: string;
+  config?: any;
+}
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  pattern: string;
+  threshold?: number;
+  status: 'active' | 'inactive';
+  message: string;
 }
 
 // Model Types

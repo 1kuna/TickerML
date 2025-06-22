@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { DashboardState, Notification } from '@/types';
-import { saveThemePreference, loadThemePreference } from '@/utils/theme';
+import { DashboardState, Notification } from '../../types';
+import { saveThemePreference, loadThemePreference } from '../../utils/theme';
 
 const initialState: DashboardState = {
   sidebarCollapsed: false,

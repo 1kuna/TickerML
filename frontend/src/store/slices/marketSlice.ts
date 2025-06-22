@@ -1,10 +1,14 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { MarketData, OrderBook, Trade } from '@/types';
+import { MarketData, OrderBook, Trade } from '../../types';
 
 interface MarketState {
   prices: MarketData[];
   orderBooks: Record<string, OrderBook>;
   recentTrades: Record<string, Trade[]>;
+  currentSymbol: string;
+  currentExchange: string;
+  orderBook: OrderBook | null;
+  isConnected: boolean;
   isLoading: boolean;
   lastUpdate: string | null;
   error: string | null;
@@ -14,6 +18,10 @@ const initialState: MarketState = {
   prices: [],
   orderBooks: {},
   recentTrades: {},
+  currentSymbol: 'BTC/USDT',
+  currentExchange: 'binance',
+  orderBook: null,
+  isConnected: false,
   isLoading: false,
   lastUpdate: null,
   error: null,
@@ -50,6 +58,12 @@ const marketSlice = createSlice({
     setError: (state, action: PayloadAction<string | null>) => {
       state.error = action.payload;
     },
+    setCurrentSymbol: (state, action: PayloadAction<string>) => {
+      state.currentSymbol = action.payload;
+    },
+    setCurrentExchange: (state, action: PayloadAction<string>) => {
+      state.currentExchange = action.payload;
+    },
   },
 });
 
@@ -60,6 +74,8 @@ export const {
   setRecentTrades,
   setLoading,
   setError,
+  setCurrentSymbol,
+  setCurrentExchange,
 } = marketSlice.actions;
 
 export default marketSlice.reducer;

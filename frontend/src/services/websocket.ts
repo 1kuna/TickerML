@@ -271,6 +271,26 @@ class WebSocketService {
     }
   }
 
+  unsubscribeFromOrderBook(symbol: string, exchange: string): void {
+    if (this.socket?.connected) {
+      this.socket.emit('unsubscribe', {
+        channel: 'orderbook',
+        symbol: symbol,
+        exchange: exchange,
+      });
+    }
+  }
+
+  unsubscribeFromTrades(symbol: string, exchange: string): void {
+    if (this.socket?.connected) {
+      this.socket.emit('unsubscribe', {
+        channel: 'trades',
+        symbol: symbol,
+        exchange: exchange,
+      });
+    }
+  }
+
   // Event handling
   on<T = any>(event: string, handler: WebSocketEventHandler<T>): void {
     if (!this.eventHandlers.has(event)) {

@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { Row, Col, Card, Statistic, Progress, Table, Tag, Typography } from 'antd';
 import { ArrowUpOutlined, ArrowDownOutlined, DollarOutlined, TrophyOutlined, WarningOutlined } from '@ant-design/icons';
-import { useAppDispatch, useAppSelector } from '@/store';
-import apiService from '@/services/api';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { apiService } from '../../services/api';
 
 const { Title } = Typography;
 

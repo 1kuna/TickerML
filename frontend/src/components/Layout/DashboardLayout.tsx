@@ -20,9 +20,9 @@ import {
   BulbFilled,
 } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { logoutAsync } from '@/store/slices/authSlice';
-import { toggleSidebar, setActiveMenuItem, toggleTheme } from '@/store/slices/uiSlice';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { logoutAsync } from '../../store/slices/authSlice';
+import { toggleSidebar, setActiveMenuItem, toggleTheme } from '../../store/slices/uiSlice';
 
 const { Header, Sider, Content } = Layout;
 

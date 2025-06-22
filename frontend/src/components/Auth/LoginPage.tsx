@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, Card, message, Alert } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { loginAsync, clearError } from '@/store/slices/authSlice';
-import { LoginCredentials } from '@/types';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { loginAsync, clearError } from '../../store/slices/authSlice';
+import { LoginCredentials } from '../../types';
 
 const LoginPage: React.FC = () => {
   const dispatch = useAppDispatch();

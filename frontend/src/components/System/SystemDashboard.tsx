@@ -32,7 +32,8 @@ import {
   MonitorOutlined,
   AlertOutlined
 } from '@ant-design/icons';
-import { Line, Gauge } from '@ant-design/charts';
+// Note: Charts will be added later when @ant-design/charts is properly installed
+// import { Line, Gauge } from '@ant-design/charts';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { 
   fetchSystemStatus, 
@@ -400,28 +401,37 @@ const SystemDashboard: React.FC = () => {
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
           <Card title="CPU Usage">
-            <Gauge {...cpuGaugeConfig} height={120} />
+            {/* <Gauge {...cpuGaugeConfig} height={120} /> */}
+            <div style={{ height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Statistic title="CPU" value={metrics?.cpu_usage || 0} suffix="%" />
+            </div>
           </Card>
         </Col>
         <Col span={6}>
           <Card title="Memory Usage">
-            <Gauge {...memoryGaugeConfig} height={120} />
+            {/* <Gauge {...memoryGaugeConfig} height={120} /> */}
+            <div style={{ height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Statistic title="Memory" value={metrics?.memory_usage || 0} suffix="%" />
+            </div>
           </Card>
         </Col>
         <Col span={6}>
           <Card title="Disk Usage">
-            <Gauge {...diskGaugeConfig} height={120} />
+            {/* <Gauge {...diskGaugeConfig} height={120} /> */}
+            <div style={{ height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Statistic title="Disk" value={metrics?.disk_usage || 0} suffix="%" />
+            </div>
           </Card>
         </Col>
         <Col span={6}>
           <Card>
             <Statistic
               title="Active Services"
-              value={services?.filter(s => s.status === 'running').length || 0}
-              suffix={`/ ${services?.length || 0}`}
+              value={(services || []).filter(s => s.status === 'running').length}
+              suffix={`/ ${(services || []).length}`}
               prefix={<CloudServerOutlined />}
               valueStyle={{ 
-                color: services?.every(s => s.status === 'running') ? '#3f8600' : '#cf1322'
+                color: (services || []).every(s => s.status === 'running') ? '#3f8600' : '#cf1322'
               }}
             />
           </Card>
@@ -432,7 +442,10 @@ const SystemDashboard: React.FC = () => {
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={24}>
           <Card title="System Metrics (Last Hour)" loading={isLoading}>
-            <Line {...metricsConfig} />
+            {/* <Line {...metricsConfig} /> */}
+            <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+              System metrics chart will be available when charts library is installed
+            </div>
           </Card>
         </Col>
       </Row>

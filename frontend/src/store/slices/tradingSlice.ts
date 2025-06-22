@@ -1,17 +1,31 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { TradingStatus } from '@/types';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { TradingStatus, Position } from '../../types';
+import { apiService } from '../../services/api';
 
 interface TradingState {
   status: TradingStatus | null;
+  positions: Position[];
+  isTrading: boolean;
   isLoading: boolean;
   error: string | null;
 }
 
 const initialState: TradingState = {
   status: null,
+  positions: [],
+  isTrading: false,
   isLoading: false,
   error: null,
 };
+
+// Async thunks
+export const placePaperOrder = createAsyncThunk(
+  'trading/placePaperOrder',
+  async (orderData: any) => {
+    const response = await apiService.placePaperOrder(orderData);
+    return response;
+  }
+);
 
 const tradingSlice = createSlice({
   name: 'trading',

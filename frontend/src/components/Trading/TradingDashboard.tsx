@@ -20,7 +20,7 @@ import {
   CaretDownOutlined, 
   ReloadOutlined,
   DollarOutlined,
-  TrendingUpOutlined
+  RiseOutlined
 } from '@ant-design/icons';
 import { createChart, ColorType, IChartApi } from 'lightweight-charts';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
@@ -351,7 +351,7 @@ const TradingDashboard: React.FC = () => {
               title="24h Volume"
               value={chartData.reduce((sum, d) => sum + d.volume, 0)}
               precision={0}
-              prefix={<TrendingUpOutlined />}
+              prefix={<RiseOutlined />}
             />
           </Card>
         </Col>
@@ -481,7 +481,7 @@ const TradingDashboard: React.FC = () => {
         <Col span={12}>
           <Card title="Recent Trades">
             <Table
-              dataSource={recentTrades?.slice(0, 20) || []}
+              dataSource={(recentTrades && currentSymbol ? recentTrades[`${currentSymbol}-${currentExchange}`] || [] : []).slice(0, 20)}
               columns={tradesColumns}
               pagination={false}
               size="small"
