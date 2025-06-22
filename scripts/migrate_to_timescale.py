@@ -32,7 +32,7 @@ class TimescaleMigration:
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
         
-        self.timescale_config = config['timescale']
+        self.timescale_config = config['connection']
         self.sqlite_path = self.project_root / "data" / "db" / "crypto_data.db"
         
         # Database connections
@@ -55,8 +55,8 @@ class TimescaleMigration:
                 host=self.timescale_config['host'],
                 port=self.timescale_config['port'],
                 database=self.timescale_config['database'],
-                user=self.timescale_config['user'],
-                password=self.timescale_config['password']
+                user=self.timescale_config['username'],
+                password=os.getenv(self.timescale_config['password_env_var'], 'tickerml_pass')
             )
             logger.info("Connected to TimescaleDB")
             

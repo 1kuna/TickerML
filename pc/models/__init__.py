@@ -7,13 +7,13 @@ Contains Decision Transformer and related model architectures
 from .decision_transformer import (
     DecisionTransformer,
     DecisionTransformerConfig,
-    FlashMultiheadAttention,
+    MultiHeadAttention,
     TransformerBlock
 )
 
 __all__ = [
     'DecisionTransformer',
     'DecisionTransformerConfig',
-    'FlashMultiheadAttention',
+    'MultiHeadAttention',
     'TransformerBlock'
 ]

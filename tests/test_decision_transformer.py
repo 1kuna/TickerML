@@ -18,7 +18,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from pc.models.decision_transformer import (
     DecisionTransformer, 
     DecisionTransformerConfig,
-    FlashMultiheadAttention,
+    MultiHeadAttention,
     TransformerBlock
 )
 from pc.offline_rl_trainer import (
@@ -36,11 +36,10 @@ class TestDecisionTransformer(unittest.TestCase):
         """Set up test fixtures"""
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.config = DecisionTransformerConfig(
-            hidden_size=128,
-            num_attention_heads=4,
-            num_hidden_layers=2,
-            context_length=30,
-            use_flash_attention=False,  # Disable for testing
+            d_model=128,
+            n_heads=4,
+            n_layers=2,
+            max_seq_length=30,
             use_bf16=False  # Disable for testing
         )
         self.model = DecisionTransformer(self.config)
@@ -183,17 +182,17 @@ class TestDecisionTransformer(unittest.TestCase):
                 
                 torch.testing.assert_close(original_output, loaded_output)
 
-class TestFlashAttention(unittest.TestCase):
-    """Test Flash Attention implementation"""
+class TestMultiHeadAttention(unittest.TestCase):
+    """Test Multi-Head Attention implementation"""
     
     def setUp(self):
         """Set up test fixtures"""
         self.config = DecisionTransformerConfig(
-            hidden_size=128,
-            num_attention_heads=4,
+            d_model=128,
+            n_heads=4,
             use_flash_attention=False  # Test standard attention path
         )
-        self.attention = FlashMultiheadAttention(self.config)
+        self.attention = MultiHeadAttention(self.config.d_model, self.config.n_heads)
     
     def test_attention_forward(self):
         """Test attention forward pass"""
@@ -302,10 +301,10 @@ class TestOfflineRLTrainer(unittest.TestCase):
         )
         
         model_config = DecisionTransformerConfig(
-            hidden_size=64,
-            num_attention_heads=2,
-            num_hidden_layers=2,
-            context_length=30
+            d_model=64,
+            n_heads=2,
+            n_layers=2,
+            max_seq_length=30
         )
         
         self.model = DecisionTransformer(model_config)
