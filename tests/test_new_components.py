@@ -348,8 +348,7 @@ class TestPaperTrader(unittest.TestCase):
         """Set up test environment."""
         self.test_db = 'test_crypto_data.db'
         self.engine = PaperTradingEngine()
-        self.engine.db_path = self.test_db
-        self.engine._init_database()
+        self.engine.set_db_path(self.test_db)
         
         # Create test price data
         conn = sqlite3.connect(self.test_db)
@@ -389,9 +388,11 @@ class TestPaperTrader(unittest.TestCase):
     
     def test_place_buy_order(self):
         """Test placing a buy order."""
-        order_id = self.engine.place_order('BTCUSDT', OrderSide.BUY, 0.1, OrderType.MARKET)
+        # Use smaller quantity that won't exceed risk limits (0.05 BTC ≈ $2500)
+        order_id = self.engine.place_order('BTCUSDT', OrderSide.BUY, 0.05, OrderType.MARKET)
         
         self.assertIsNotNone(order_id)
+        self.assertNotEqual(order_id, "")  # Order should not be rejected
         self.assertIn(order_id, self.engine.orders)
         
         # Check if cash balance decreased
@@ -402,22 +403,25 @@ class TestPaperTrader(unittest.TestCase):
     
     def test_place_sell_order(self):
         """Test placing a sell order."""
-        # First place a buy order
-        buy_order_id = self.engine.place_order('BTCUSDT', OrderSide.BUY, 0.1, OrderType.MARKET)
+        # First place a buy order (smaller quantity to stay within risk limits)
+        buy_order_id = self.engine.place_order('BTCUSDT', OrderSide.BUY, 0.05, OrderType.MARKET)
+        self.assertNotEqual(buy_order_id, "")  # Should succeed
         
         # Then place a sell order
-        sell_order_id = self.engine.place_order('BTCUSDT', OrderSide.SELL, 0.05, OrderType.MARKET)
+        sell_order_id = self.engine.place_order('BTCUSDT', OrderSide.SELL, 0.02, OrderType.MARKET)
         
         self.assertIsNotNone(sell_order_id)
+        self.assertNotEqual(sell_order_id, "")  # Should not be rejected
         
         # Check if position was reduced
         position = self.engine.positions['BTCUSDT']
-        self.assertAlmostEqual(position.quantity, 0.05, places=6)
+        self.assertAlmostEqual(position.quantity, 0.03, places=6)  # 0.05 - 0.02
     
     def test_portfolio_value_calculation(self):
         """Test portfolio value calculation."""
-        # Place a buy order
-        self.engine.place_order('BTCUSDT', OrderSide.BUY, 0.1, OrderType.MARKET)
+        # Place a buy order (smaller quantity to stay within risk limits)
+        order_id = self.engine.place_order('BTCUSDT', OrderSide.BUY, 0.05, OrderType.MARKET)
+        self.assertNotEqual(order_id, "")  # Should succeed
         
         # Calculate portfolio value
         portfolio_value = self.engine._calculate_portfolio_value()
@@ -438,8 +442,9 @@ class TestPaperTrader(unittest.TestCase):
     
     def test_portfolio_summary(self):
         """Test portfolio summary generation."""
-        # Place some orders
-        self.engine.place_order('BTCUSDT', OrderSide.BUY, 0.05, OrderType.MARKET)
+        # Place some orders (ensure it stays within risk limits)
+        order_id = self.engine.place_order('BTCUSDT', OrderSide.BUY, 0.05, OrderType.MARKET)
+        self.assertNotEqual(order_id, "")  # Should succeed
         
         summary = self.engine.get_portfolio_summary()
         

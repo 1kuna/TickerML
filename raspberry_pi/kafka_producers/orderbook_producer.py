@@ -96,8 +96,8 @@ class OrderBookProducer:
     
     def _calculate_imbalance(self, orderbook: Dict[str, Any]) -> Optional[float]:
         """Calculate order book imbalance"""
-        bids = orderbook.get('bids', [:5])  # Top 5 levels
-        asks = orderbook.get('asks', [:5])
+        bids = orderbook.get('bids', [])[:5]  # Top 5 levels
+        asks = orderbook.get('asks', [])[:5]
         
         if bids and asks:
             bid_volume = sum(float(bid[1]) for bid in bids)

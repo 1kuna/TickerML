@@ -234,9 +234,10 @@ class AdvancedRiskManager:
             total_exposure = 0.0
             
             for symbol, position in positions.items():
-                if position.get('quantity', 0) > 0:
-                    exposure = position.get('market_value', 0)
-                    total_exposure += abs(exposure)
+                if symbol != 'total_value' and isinstance(position, dict):
+                    if position.get('quantity', 0) > 0:
+                        exposure = position.get('market_value', 0)
+                        total_exposure += abs(exposure)
             
             portfolio_value = positions.get('total_value', 10000)  # Default to starting capital
             heat = total_exposure / portfolio_value if portfolio_value > 0 else 0.0
@@ -254,12 +255,13 @@ class AdvancedRiskManager:
             total_exposure = 0.0
             
             for symbol, position in positions.items():
-                if position.get('quantity', 0) > 0:
-                    exposure = abs(position.get('market_value', 0))
-                    sector = self.asset_sectors.get(symbol, 'unknown')
-                    
-                    sector_exposures[sector] = sector_exposures.get(sector, 0) + exposure
-                    total_exposure += exposure
+                if symbol != 'total_value' and isinstance(position, dict):
+                    if position.get('quantity', 0) > 0:
+                        exposure = abs(position.get('market_value', 0))
+                        sector = self.asset_sectors.get(symbol, 'unknown')
+                        
+                        sector_exposures[sector] = sector_exposures.get(sector, 0) + exposure
+                        total_exposure += exposure
             
             if total_exposure == 0:
                 return 0.0
@@ -287,13 +289,16 @@ class AdvancedRiskManager:
             
             # Get position weights
             weights = np.zeros(len(symbols))
-            total_value = sum(abs(pos.get('market_value', 0)) for pos in positions.values())
+            total_value = 0.0
+            for key, pos in positions.items():
+                if key != 'total_value' and isinstance(pos, dict):
+                    total_value += abs(pos.get('market_value', 0))
             
             if total_value == 0:
                 return 0.0
                 
             for i, symbol in enumerate(symbols):
-                if symbol in positions:
+                if symbol in positions and isinstance(positions[symbol], dict):
                     weights[i] = abs(positions[symbol].get('market_value', 0)) / total_value
             
             # Calculate portfolio correlation risk
@@ -369,7 +374,11 @@ class AdvancedRiskManager:
             volatility_regime = self.detect_volatility_regime(symbols)
             
             # Calculate total exposure
-            total_exposure = sum(abs(pos.get('market_value', 0)) for pos in positions.values())
+            total_exposure = 0.0
+            for key, pos in positions.items():
+                if key != 'total_value' and isinstance(pos, dict):
+                    total_exposure += abs(pos.get('market_value', 0))
+            
             portfolio_value = positions.get('total_value', 10000)
             exposure_pct = total_exposure / portfolio_value if portfolio_value > 0 else 0.0
             
@@ -471,7 +480,8 @@ class AdvancedRiskManager:
             sector_exposure = 0.0
             
             for sym, pos in positions.items():
-                if (self.asset_sectors.get(sym, 'unknown') == symbol_sector and 
+                if (sym != 'total_value' and isinstance(pos, dict) and
+                    self.asset_sectors.get(sym, 'unknown') == symbol_sector and 
                     pos.get('quantity', 0) > 0):
                     sector_exposure += abs(pos.get('market_value', 0)) / portfolio_value
             

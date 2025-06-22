@@ -147,6 +147,12 @@ class PaperTradingEngine:
         
         # Initialize advanced risk manager
         self.risk_manager = AdvancedRiskManager(db_path=self.db_path, config=self.config)
+    
+    def set_db_path(self, db_path: str):
+        """Update database path for all components."""
+        self.db_path = db_path
+        self.execution_simulator.db_path = db_path
+        self.risk_manager.db_path = db_path
         
         # Initialize database
         self._init_database()
