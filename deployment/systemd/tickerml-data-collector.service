@@ -1,0 +1,44 @@
+[Unit]
+Description=TickerML Data Collector
+After=network.target redis.service kafka.service
+Wants=redis.service kafka.service
+
+[Service]
+Type=simple
+User=tickerml
+Group=tickerml
+WorkingDirectory=/opt/tickerml
+Environment=PATH=/opt/tickerml/venv/bin
+Environment=PYTHONPATH=/opt/tickerml
+Environment=ENVIRONMENT=production
+
+# Environment file with secrets
+EnvironmentFile=/opt/tickerml/.env
+
+# Main command
+ExecStart=/opt/tickerml/venv/bin/python raspberry_pi/orderbook_collector.py
+
+# Restart policy
+Restart=always
+RestartSec=30
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Security settings
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tickerml/logs /opt/tickerml/data
+PrivateTmp=true
+
+# Resource limits
+LimitNOFILE=8192
+MemoryMax=1G
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tickerml-data-collector
+
+[Install]
+WantedBy=multi-user.target

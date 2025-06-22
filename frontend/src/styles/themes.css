@@ -1,0 +1,129 @@
+/* Dark mode theme variables and overrides */
+
+/* Trading specific colors */
+.profit-color {
+  color: #52c41a !important;
+}
+
+.loss-color {
+  color: #ff4d4f !important;
+}
+
+.warning-color {
+  color: #faad14 !important;
+}
+
+/* Order book specific styling */
+.orderbook-container .ask-row {
+  background: rgba(255, 77, 79, 0.1) !important;
+}
+
+.orderbook-container .bid-row {
+  background: rgba(82, 196, 26, 0.1) !important;
+}
+
+/* Chart container */
+.chart-container {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* Dark mode specific overrides */
+.ant-layout.dark-theme {
+  background: #141414 !important;
+}
+
+.ant-layout.dark-theme .ant-layout-content {
+  background: #000 !important;
+}
+
+.ant-layout.dark-theme .ant-card {
+  background: #1f1f1f !important;
+  border-color: #303030 !important;
+}
+
+.ant-layout.dark-theme .ant-card-head {
+  background: #1f1f1f !important;
+  border-bottom-color: #303030 !important;
+}
+
+.ant-layout.dark-theme .ant-table {
+  background: #1f1f1f !important;
+}
+
+.ant-layout.dark-theme .ant-table-thead > tr > th {
+  background: #262626 !important;
+  border-bottom-color: #303030 !important;
+}
+
+.ant-layout.dark-theme .ant-table-tbody > tr > td {
+  border-bottom-color: #303030 !important;
+}
+
+.ant-layout.dark-theme .ant-table-tbody > tr:hover > td {
+  background: #262626 !important;
+}
+
+.ant-layout.dark-theme .ant-statistic-title {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+.ant-layout.dark-theme .ant-statistic-content {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.ant-layout.dark-theme .ant-typography {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Custom scrollbar for dark mode */
+.ant-layout.dark-theme ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ant-layout.dark-theme ::-webkit-scrollbar-track {
+  background: #1f1f1f;
+}
+
+.ant-layout.dark-theme ::-webkit-scrollbar-thumb {
+  background: #434343;
+  border-radius: 4px;
+}
+
+.ant-layout.dark-theme ::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* High contrast mode for better visibility */
+@media (prefers-contrast: high) {
+  .profit-color {
+    color: #00ff00 !important;
+  }
+  
+  .loss-color {
+    color: #ff0000 !important;
+  }
+}
+
+/* Responsive design for desktop optimization */
+@media (min-width: 1920px) {
+  .ant-layout-content {
+    padding: 32px !important;
+  }
+  
+  .ant-card {
+    margin-bottom: 24px;
+  }
+  
+  .ant-table {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 2560px) {
+  .ant-layout-content {
+    max-width: 2400px;
+    margin: 0 auto;
+  }
+}

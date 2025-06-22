@@ -1,0 +1,44 @@
+[Unit]
+Description=TickerML Paper Trading Engine
+After=network.target redis.service kafka.service tickerml-data-collector.service
+Wants=redis.service kafka.service tickerml-data-collector.service
+
+[Service]
+Type=simple
+User=tickerml
+Group=tickerml
+WorkingDirectory=/opt/tickerml
+Environment=PATH=/opt/tickerml/venv/bin
+Environment=PYTHONPATH=/opt/tickerml
+Environment=ENVIRONMENT=production
+
+# Environment file with secrets
+EnvironmentFile=/opt/tickerml/.env
+
+# Main command
+ExecStart=/opt/tickerml/venv/bin/python raspberry_pi/paper_trader.py
+
+# Restart policy
+Restart=always
+RestartSec=30
+StartLimitInterval=300
+StartLimitBurst=3
+
+# Security settings
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tickerml/logs /opt/tickerml/data
+PrivateTmp=true
+
+# Resource limits
+LimitNOFILE=4096
+MemoryMax=512M
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tickerml-paper-trader
+
+[Install]
+WantedBy=multi-user.target

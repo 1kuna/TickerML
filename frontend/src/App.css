@@ -1,0 +1,200 @@
+/* Global styles for TickerML Dashboard */
+
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Custom styles for professional trading interface */
+.trading-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.status-running {
+  background-color: #52c41a;
+}
+
+.status-stopped {
+  background-color: #ff4d4f;
+}
+
+.status-warning {
+  background-color: #faad14;
+}
+
+.metric-card {
+  text-align: center;
+  padding: 16px;
+}
+
+.metric-value {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.metric-label {
+  color: #666;
+  font-size: 14px;
+}
+
+.chart-container {
+  height: 400px;
+  margin: 16px 0;
+}
+
+.orderbook-container {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+.bid-row {
+  color: #52c41a;
+}
+
+.ask-row {
+  color: #ff4d4f;
+}
+
+.trade-row {
+  padding: 4px 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.buy-trade {
+  background-color: rgba(82, 196, 26, 0.1);
+}
+
+.sell-trade {
+  background-color: rgba(255, 77, 79, 0.1);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .ant-layout-sider {
+    display: none !important;
+  }
+  
+  .ant-layout {
+    margin-left: 0 !important;
+  }
+  
+  .ant-layout-header {
+    left: 0 !important;
+  }
+}
+
+/* Dark theme overrides */
+body[data-theme='dark'] {
+  background-color: #141414;
+  color: #fff;
+}
+
+body[data-theme='dark'] .ant-card {
+  background-color: #1f1f1f;
+  border-color: #303030;
+}
+
+body[data-theme='dark'] .ant-table {
+  background-color: #1f1f1f;
+}
+
+body[data-theme='dark'] .ant-table-thead > tr > th {
+  background-color: #262626;
+  border-color: #303030;
+  color: #fff;
+}
+
+body[data-theme='dark'] .ant-table-tbody > tr > td {
+  background-color: #1f1f1f;
+  border-color: #303030;
+  color: #fff;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Loading animations */
+.loading-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Professional trading colors */
+.profit-color {
+  color: #52c41a !important;
+}
+
+.loss-color {
+  color: #ff4d4f !important;
+}
+
+.neutral-color {
+  color: #666 !important;
+}

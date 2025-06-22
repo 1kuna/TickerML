@@ -1,0 +1,49 @@
+[Unit]
+Description=TickerML Dashboard API
+After=network.target postgresql.service redis.service
+Wants=postgresql.service redis.service
+
+[Service]
+Type=simple
+User=tickerml
+Group=tickerml
+WorkingDirectory=/opt/tickerml
+Environment=PATH=/opt/tickerml/venv/bin
+Environment=PYTHONPATH=/opt/tickerml
+Environment=ENVIRONMENT=production
+Environment=LOG_LEVEL=INFO
+
+# Environment file with secrets
+EnvironmentFile=/opt/tickerml/.env
+
+# Main command
+ExecStart=/opt/tickerml/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Security settings
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tickerml/logs /opt/tickerml/data
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=2G
+CPUQuota=200%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tickerml-dashboard
+
+[Install]
+WantedBy=multi-user.target
