@@ -150,7 +150,8 @@ async def root() -> Dict[str, str]:
 def main():
     """Main entry point"""
     host = os.getenv("DASHBOARD_HOST", "0.0.0.0")
-    port = int(os.getenv("DASHBOARD_PORT", "8000"))
+    port_str = os.getenv("DASHBOARD_PORT", "8000").split('#')[0].strip()
+    port = int(port_str)
     
     logger.info(f"Starting TickerML Dashboard API on {host}:{port}")
     
