@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "db" / "crypto_ohlcv.db"
 DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT"]
 DEFAULT_HOST = "0.0.0.0"
-DEFAULT_PORT = 5000
+DEFAULT_PORT = 5005
 DEFAULT_DEBUG = True
 
 def load_app_config():
