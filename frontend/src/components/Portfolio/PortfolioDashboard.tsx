@@ -13,18 +13,18 @@ import {
   DatePicker,
   Space,
   Alert,
-  Tooltip
+  Tooltip as AntTooltip
 } from 'antd';
 import { 
   DollarOutlined,
-  TrendingUpOutlined,
-  TrendingDownOutlined,
+  RiseOutlined,
+  FallOutlined,
   PieChartOutlined,
   BarChartOutlined,
   ReloadOutlined,
   WarningOutlined
 } from '@ant-design/icons';
-import { Line, Pie } from '@ant-design/charts';
+import { LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchPortfolioSummary, fetchPositions, fetchTradeHistory } from '../../store/slices/portfolioSlice';
 import { Position, Trade, PortfolioSnapshot } from '../../types';
@@ -257,6 +257,7 @@ const PortfolioDashboard: React.FC = () => {
   // Allocation chart config
   const allocationConfig = {
     data: allocationData,
+    dataKey: 'value',
     angleField: 'value',
     colorField: 'symbol',
     height: 300,
@@ -336,7 +337,7 @@ const PortfolioDashboard: React.FC = () => {
               title="Total P&L"
               value={totalPnl}
               precision={2}
-              prefix={totalPnl >= 0 ? <TrendingUpOutlined /> : <TrendingDownOutlined />}
+              prefix={totalPnl >= 0 ? <RiseOutlined /> : <FallOutlined />}
               suffix={`(${totalPnlPercent >= 0 ? '+' : ''}${totalPnlPercent.toFixed(2)}%)`}
               valueStyle={{ 
                 color: totalPnl >= 0 ? '#3f8600' : '#cf1322',

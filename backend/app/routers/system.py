@@ -299,16 +299,8 @@ def collect_metrics():
         with metrics_lock:
             metrics_history.append(metrics)
             
-        # Store in Redis for real-time access
-        if redis_service and redis_service.client:
-            try:
-                redis_service.client.setex(
-                    "system:metrics:latest",
-                    300,  # 5 minute expiry
-                    json.dumps(metrics, default=str)
-                )
-            except Exception as e:
-                logger.error(f"Failed to store metrics in Redis: {e}")
+        # Store in Redis for real-time access (note: sync function, skip Redis for now)
+        # Redis operations moved to async endpoints only
                 
     except Exception as e:
         logger.error(f"Error collecting metrics: {e}")
@@ -577,15 +569,29 @@ async def get_current_metrics(
     """Get current system metrics"""
     try:
         # Try to get from Redis first
-        if redis_service and redis_service.client:
-            cached_metrics = redis_service.client.get("system:metrics:latest")
-            if cached_metrics:
-                return json.loads(cached_metrics)
+        if redis_service and redis_service.redis:
+            try:
+                cached_metrics = await redis_service.redis.get("system:metrics:latest")
+                if cached_metrics:
+                    return json.loads(cached_metrics)
+            except Exception as redis_error:
+                logger.warning(f"Redis get failed, falling back to local metrics: {redis_error}")
         
         # Fall back to collecting fresh metrics
         with metrics_lock:
             if metrics_history:
-                return metrics_history[-1]
+                latest_metrics = metrics_history[-1]
+                # Cache the metrics in Redis for next time
+                if redis_service and redis_service.redis:
+                    try:
+                        await redis_service.redis.setex(
+                            "system:metrics:latest",
+                            300,  # 5 minute expiry
+                            json.dumps(latest_metrics, default=str)
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to store metrics in Redis: {e}")
+                return latest_metrics
         
         # If no history, collect now
         collect_metrics()

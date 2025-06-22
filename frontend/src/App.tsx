@@ -79,8 +79,46 @@ const AppContent: React.FC = () => {
         theme={{
           algorithm: uiTheme === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
           token: {
-            colorPrimary: '#1890ff',
-            borderRadius: 6,
+            colorPrimary: '#2563eb',
+            colorSuccess: '#10b981',
+            colorWarning: '#f59e0b',
+            colorError: '#ef4444',
+            colorInfo: '#3b82f6',
+            borderRadius: 12,
+            borderRadiusSM: 8,
+            borderRadiusLG: 16,
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            boxShadowSecondary: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+            fontSize: 14,
+            fontSizeHeading1: 32,
+            fontSizeHeading2: 24,
+            fontSizeHeading3: 20,
+            colorBgContainer: '#ffffff',
+            colorBgElevated: '#ffffff',
+            colorBorder: '#e2e8f0',
+            colorBorderSecondary: '#f1f5f9',
+            colorText: '#1e293b',
+            colorTextSecondary: '#64748b',
+            colorTextTertiary: '#94a3b8',
+            wireframe: false,
+          },
+          components: {
+            Card: {
+              borderRadiusLG: 12,
+              boxShadowTertiary: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            },
+            Button: {
+              borderRadius: 8,
+              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+            },
+            Table: {
+              borderRadiusLG: 8,
+            },
+            Layout: {
+              siderBg: uiTheme === 'dark' ? '#1f1f1f' : '#f8fafc',
+              headerBg: uiTheme === 'dark' ? '#1f1f1f' : '#ffffff',
+            },
           },
         }}
       >

@@ -42,7 +42,7 @@ import {
   stopService, 
   startService 
 } from '../../store/slices/systemSlice';
-import { SystemService, SystemMetrics, AlertRule } from '../../types';
+import { SystemService, ServiceStatus, SystemMetrics, AlertRule } from '../../types';
 import { apiService } from '../../services/api';
 import dayjs from 'dayjs';
 
@@ -59,7 +59,7 @@ const SystemDashboard: React.FC = () => {
   } = useAppSelector(state => state.system);
   
   const [metricsData, setMetricsData] = useState<any[]>([]);
-  const [selectedService, setSelectedService] = useState<SystemService | null>(null);
+  const [selectedService, setSelectedService] = useState<ServiceStatus | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [form] = Form.useForm();
 
@@ -90,7 +90,7 @@ const SystemDashboard: React.FC = () => {
     }
   }, [metrics]);
 
-  const handleServiceAction = async (service: SystemService, action: 'start' | 'stop' | 'restart') => {
+  const handleServiceAction = async (service: ServiceStatus, action: 'start' | 'stop' | 'restart') => {
     const actionName = action.charAt(0).toUpperCase() + action.slice(1);
     
     confirm({
@@ -117,7 +117,7 @@ const SystemDashboard: React.FC = () => {
     });
   };
 
-  const handleConfigureService = (service: SystemService) => {
+  const handleConfigureService = (service: ServiceStatus) => {
     setSelectedService(service);
     form.setFieldsValue({
       auto_restart: service.auto_restart,
@@ -145,7 +145,7 @@ const SystemDashboard: React.FC = () => {
       title: 'Service',
       dataIndex: 'name',
       key: 'name',
-      render: (name: string, record: SystemService) => (
+      render: (name: string, record: ServiceStatus) => (
         <Space>
           <Text strong>{name}</Text>
           <Tag color={
@@ -218,7 +218,7 @@ const SystemDashboard: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_, record: SystemService) => (
+      render: (_: any, record: ServiceStatus) => (
         <Space>
           {record.status === 'stopped' ? (
             <Button 

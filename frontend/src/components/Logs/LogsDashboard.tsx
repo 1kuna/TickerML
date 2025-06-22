@@ -134,13 +134,13 @@ const LogsDashboard: React.FC = () => {
       }
 
       const response = await apiService.getLogs(params);
-      setLogs(response.logs || []);
+      setLogs(response || []);
       
       // Count errors and warnings
-      const errors = response.logs?.filter((log: LogEntry) => 
+      const errors = response?.filter((log: LogEntry) => 
         log.level === 'ERROR' || log.level === 'CRITICAL'
       ).length || 0;
-      const warnings = response.logs?.filter((log: LogEntry) => 
+      const warnings = response?.filter((log: LogEntry) => 
         log.level === 'WARNING'
       ).length || 0;
       

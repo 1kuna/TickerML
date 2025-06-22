@@ -175,19 +175,29 @@ export interface SystemMetrics {
 
 export interface ServiceStatus {
   name: string;
-  status: 'running' | 'stopped' | 'error';
+  status: 'running' | 'stopped' | 'error' | 'starting';
   pid?: number;
   cpu_percent?: number;
   memory_mb?: number;
   uptime_seconds?: number;
   last_error?: string;
+  description?: string;
+  config?: any;
+  auto_restart?: boolean;
+  max_restarts?: number;
+  restart_delay?: number;
+  restart_count?: number;
+  uptime?: number;
 }
 
 export interface SystemService {
   name: string;
-  status: 'running' | 'stopped' | 'error';
+  status: 'running' | 'stopped' | 'error' | 'starting';
   description: string;
   config?: any;
+  auto_restart?: boolean;
+  max_restarts?: number;
+  restart_delay?: number;
 }
 
 export interface AlertRule {
@@ -244,6 +254,7 @@ export interface ConfigFile {
 
 // Log Types
 export interface LogEntry {
+  id: string;
   timestamp: string;
   level: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
   service: string;

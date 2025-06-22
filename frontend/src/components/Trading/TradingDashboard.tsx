@@ -26,7 +26,7 @@ import { createChart, ColorType, IChartApi } from 'lightweight-charts';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setCurrentSymbol, setCurrentExchange } from '../../store/slices/marketSlice';
 import { placePaperOrder } from '../../store/slices/tradingSlice';
-import { OrderType, OrderSide, OrderBook, Trade, OHLCV } from '../../types';
+import { OrderType, OrderSide, OrderBook, Trade, OHLCV, CandlestickData } from '../../types';
 import { apiService } from '../../services/api';
 import { websocketService } from '../../services/websocket';
 
@@ -50,7 +50,7 @@ const TradingDashboard: React.FC = () => {
   const [form] = Form.useForm();
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const [chartData, setChartData] = useState<ChartData[]>([]);
+  const [chartData, setChartData] = useState<CandlestickData[]>([]);
   const [orderType, setOrderType] = useState<OrderType>('market');
   const [orderSide, setOrderSide] = useState<OrderSide>('buy');
   const [loading, setLoading] = useState(false);
@@ -124,15 +124,17 @@ const TradingDashboard: React.FC = () => {
       try {
         const ohlcvData = await apiService.getOHLCVData(
           currentSymbol,
-          currentExchange,
-          '1h',
-          new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
-          new Date(),
-          100
+          {
+            exchange: currentExchange,
+            interval: '1h',
+            start_time: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+            end_time: new Date().toISOString(),
+            limit: 100
+          }
         );
 
-        const formattedData: ChartData[] = ohlcvData.map((item: OHLCV) => ({
-          time: Math.floor(new Date(item.timestamp).getTime() / 1000),
+        const formattedData: CandlestickData[] = ohlcvData.map((item: OHLCV) => ({
+          time: Math.floor(new Date(item.timestamp).getTime() / 1000) as any,
           open: item.open,
           high: item.high,
           low: item.low,
@@ -147,12 +149,12 @@ const TradingDashboard: React.FC = () => {
           const candlestickSeries = chartRef.current.addCandlestickSeries();
           const volumeSeries = chartRef.current.addHistogramSeries();
           
-          candlestickSeries.setData(formattedData);
+          candlestickSeries.setData(formattedData as any);
           volumeSeries.setData(formattedData.map(d => ({
             time: d.time,
             value: d.volume,
             color: d.close >= d.open ? '#26a69a' : '#ef5350'
-          })));
+          })) as any);
         }
       } catch (error) {
         console.error('Failed to load chart data:', error);
@@ -168,7 +170,7 @@ const TradingDashboard: React.FC = () => {
   useEffect(() => {
     if (currentSymbol && currentExchange) {
       websocketService.subscribeToOrderBook(currentSymbol, currentExchange);
-      websocketService.subscribeToTrades(currentSymbol, currentExchange);
+      websocketService.subscribeToTrades();
     }
 
     return () => {
@@ -349,7 +351,7 @@ const TradingDashboard: React.FC = () => {
           <Card>
             <Statistic
               title="24h Volume"
-              value={chartData.reduce((sum, d) => sum + d.volume, 0)}
+              value={chartData.reduce((sum, d) => sum + (d.volume || 0), 0)}
               precision={0}
               prefix={<RiseOutlined />}
             />
